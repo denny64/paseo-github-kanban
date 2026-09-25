@@ -57,5 +57,6 @@ export const boardSettings = defineSettings({
     projectId: z.string().nullable().default(null),
     // Last agent used from "Start agent": "profile:<id>" or "model:<provider>/<model>".
     agent: z.string().nullable().default(null),
+    view: z.enum(["board", "list"]).default("board"),
   }),
 });

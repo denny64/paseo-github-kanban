@@ -91,3 +91,23 @@ export function LabelPill({ theme, name, color }: { theme: Theme; name: string; 
     </View>
   );
 }
+
+export function ColumnHeading({
+  theme,
+  column,
+  title,
+  count,
+}: {
+  theme: Theme;
+  column: ColumnId;
+  title: string;
+  count: number;
+}) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 4 }}>
+      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: columnColor(theme, column) }} />
+      <Text style={{ color: theme.colors.foreground, fontSize: 13, fontWeight: "600" }}>{title}</Text>
+      <Text style={{ color: theme.colors.foregroundMuted, fontSize: 13 }}>{count}</Text>
+    </View>
+  );
+}

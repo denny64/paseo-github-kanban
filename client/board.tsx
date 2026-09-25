@@ -14,11 +14,13 @@ import {
   moveCardRpc,
   type Repo,
 } from "../shared/board";
-import { Button, columnColor, errorMessage, LabelPill, type Theme } from "./controls";
+import { Button, ColumnHeading, columnColor, errorMessage, LabelPill, type Theme } from "./controls";
 import { CardModal } from "./card-modal";
+import { ListView } from "./list-view";
 import { NewCardModal } from "./new-card-modal";
 
 type Board = { repo: Repo; cards: Card[] };
+type ViewMode = "board" | "list";
 
 export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) {
   const paseo = usePaseo();
@@ -82,6 +84,9 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
   const [creating, setCreating] = useState(false);
   const [pickingProject, setPickingProject] = useState(false);
   const [compactColumn, setCompactColumn] = useState<ColumnId>("todo");
+  // Local override so the toggle flips instantly; the saved setting catches up.
+  const [viewOverride, setViewOverride] = useState<ViewMode | null>(null);
+  const view = viewOverride ?? (settings.status === "ready" ? settings.values.view : "board");
 
   const byColumn = useMemo(() => {
     const groups = new Map<ColumnId, Card[]>(COLUMNS.map((c) => [c.id, []]));
@@ -122,6 +127,13 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
     }
   };
 
+  const selectView = (next: ViewMode) => {
+    setViewOverride(next);
+    if (settings.status === "ready") {
+      void settings.save({ ...settings.values, view: next }, settings.revision);
+    }
+  };
+
   let body: React.ReactNode;
   if (projects.isError) {
     body = <Message styles={styles} text={errorMessage(projects.error)} />;
@@ -135,6 +147,8 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
     );
   } else if (!board.data) {
     body = <Message styles={styles} text="Loading issues…" />;
+  } else if (view === "list") {
+    body = <ListView theme={theme} compact={layout.compact} byColumn={byColumn} onOpen={setOpenCard} />;
   } else if (layout.compact) {
     body = (
       <>
@@ -191,6 +205,7 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
           {board.data ? <Text style={styles.muted}>{board.data.repo.nameWithOwner} · GitHub issues</Text> : null}
         </Pressable>
         <View style={styles.spacer} />
+        <ViewToggle theme={theme} view={view} onChange={selectView} />
         <Button
           theme={theme}
           icon="RotateCw"
@@ -240,6 +255,47 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
   );
 }
 
+function ViewToggle({ theme, view, onChange }: { theme: Theme; view: ViewMode; onChange(view: ViewMode): void }) {
+  const options = [
+    { id: "board", icon: "Kanban", label: "Board view" },
+    { id: "list", icon: "List", label: "List view" },
+  ] as const;
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        gap: 2,
+        padding: 2,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+        backgroundColor: theme.colors.surface1,
+      }}
+    >
+      {options.map((option) => {
+        const selected = option.id === view;
+        return (
+          <Pressable
+            key={option.id}
+            accessibilityRole="button"
+            accessibilityLabel={option.label}
+            accessibilityState={{ selected }}
+            onPress={() => onChange(option.id)}
+            style={{
+              paddingHorizontal: 8,
+              paddingVertical: 6,
+              borderRadius: 6,
+              backgroundColor: selected ? theme.colors.surface2 : "transparent",
+            }}
+          >
+            <Icon name={option.icon} size={14} color={selected ? theme.colors.foreground : theme.colors.foregroundMuted} />
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 function Message({
   styles,
   text,
@@ -274,13 +330,7 @@ function Column({
 }) {
   return (
     <View style={{ flex: 1, minWidth: 0, gap: 8 }}>
-      {column && title ? (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 4 }}>
-          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: columnColor(theme, column) }} />
-          <Text style={{ color: theme.colors.foreground, fontSize: 13, fontWeight: "600" }}>{title}</Text>
-          <Text style={{ color: theme.colors.foregroundMuted, fontSize: 13 }}>{cards.length}</Text>
-        </View>
-      ) : null}
+      {column && title ? <ColumnHeading theme={theme} column={column} title={title} count={cards.length} /> : null}
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ gap: 8, paddingHorizontal: compact ? 16 : 0, paddingBottom: 16 }}

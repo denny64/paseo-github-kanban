@@ -31,6 +31,8 @@ Moving a card changes its label, or closes or reopens the issue. You can manage 
 
 **New card** creates an issue. The board refreshes every minute and when you press refresh.
 
+The toggle in the header switches between the board and a **list view**. The list shows every card on one page, grouped by column, with its labels, assignee and last update. Paseo remembers which view you chose.
+
 ## Starting an agent
 
 Open a card, choose an agent and edit the first message if you want, then press **Start agent**. The plugin:
