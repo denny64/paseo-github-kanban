@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { columnFor, labelChanges } from "./columns.ts";
+import { columnFor, labelChanges } from "../shared/columns.ts";
 
 test("columnFor derives the column from state and labels", () => {
   assert.equal(columnFor({ state: "OPEN", labels: [] }), "todo");

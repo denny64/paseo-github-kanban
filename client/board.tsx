@@ -1,4 +1,4 @@
-import type { PaseoProject } from "@getpaseo/client";
+import type { PaseoProject } from "./paseo-types";
 import type { PluginSurfaceProps } from "@getpaseo/plugin/client";
 import { usePaseo, useSettings } from "@getpaseo/plugin/client";
 import { Icon, Modal, ScrollView, useToast } from "@getpaseo/plugin/client/react-native";

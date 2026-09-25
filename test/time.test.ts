@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { timeAgo } from "./time.ts";
+import { timeAgo } from "../shared/time.ts";
 
 test("timeAgo buckets into now / minutes / hours / days / date", () => {
   const now = Date.parse("2026-09-25T12:00:00Z");

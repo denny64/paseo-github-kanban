@@ -45,7 +45,7 @@ Open a card, choose an agent and edit the first message if you want, then press 
 
 By default the first message tells the agent to open a pull request that includes `Closes #N` and to move the card to **In review** with `gh issue edit`. When the pull request merges, GitHub closes the issue and the card moves to **Done**.
 
-## Limits
+## Limitations
 
 - The board shows up to 500 open issues and the 30 most recently closed ones.
 - Dragging moves a card between columns but not within one, because GitHub issues have no manual order.

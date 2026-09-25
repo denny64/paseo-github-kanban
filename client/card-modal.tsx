@@ -1,4 +1,4 @@
-import type { PaseoAgentConfig, PaseoApi } from "@getpaseo/client";
+import type { PaseoAgentConfig, PaseoApi } from "./paseo-types";
 import { usePaseo, useSettings } from "@getpaseo/plugin/client";
 import { Modal, TextInput, useToast } from "@getpaseo/plugin/client/react-native";
 import { ExternalLink, SettingsCard, SettingsSelect } from "@getpaseo/plugin/client/ui";

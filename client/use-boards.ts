@@ -1,4 +1,4 @@
-import type { PaseoProject } from "@getpaseo/client";
+import type { PaseoProject } from "./paseo-types";
 import { useRpc } from "@getpaseo/plugin/client";
 import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
 import { type Card, type ColumnId, loadBoardRpc, moveCardRpc, type Repo } from "../shared/board";

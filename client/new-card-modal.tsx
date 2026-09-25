@@ -1,4 +1,4 @@
-import type { PaseoProject } from "@getpaseo/client";
+import type { PaseoProject } from "./paseo-types";
 import { useRpc } from "@getpaseo/plugin/client";
 import { Modal, TextInput, useToast } from "@getpaseo/plugin/client/react-native";
 import { useMutation } from "@tanstack/react-query";
