@@ -1,4 +1,5 @@
 import type { PluginSurfaceProps } from "@getpaseo/plugin/client";
+import type { ReactNode } from "react";
 import { Icon } from "@getpaseo/plugin/client/react-native";
 import { Pressable, Text, View } from "react-native";
 import type { ColumnId } from "../shared/board";
@@ -97,17 +98,20 @@ export function ColumnHeading({
   column,
   title,
   count,
+  trailing,
 }: {
   theme: Theme;
   column: ColumnId;
   title: string;
   count: number;
+  trailing?: ReactNode;
 }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 4 }}>
       <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: columnColor(theme, column) }} />
       <Text style={{ color: theme.colors.foreground, fontSize: 13, fontWeight: "600" }}>{title}</Text>
-      <Text style={{ color: theme.colors.foregroundMuted, fontSize: 13 }}>{count}</Text>
+      <Text style={{ flex: 1, color: theme.colors.foregroundMuted, fontSize: 13 }}>{count}</Text>
+      {trailing}
     </View>
   );
 }
@@ -137,6 +141,21 @@ export function IconButton({
       })}
     >
       <Icon name={icon} size={14} color={theme.colors.foregroundMuted} />
+    </Pressable>
+  );
+}
+
+// Small text action for column headings ("Clear").
+export function TextAction({ theme, label, accessibilityLabel, onPress }: { theme: Theme; label: string; accessibilityLabel: string; onPress(): void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      hitSlop={8}
+      onPress={onPress}
+      style={({ pressed }) => ({ paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, backgroundColor: pressed ? theme.colors.surface2 : "transparent" })}
+    >
+      <Text style={{ color: theme.colors.foregroundMuted, fontSize: 12 }}>{label}</Text>
     </Pressable>
   );
 }

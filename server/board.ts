@@ -5,7 +5,7 @@ import {
   loadBoardRpc,
   moveCardRpc,
 } from "../shared/board";
-import { KANBAN_LABELS, columnFor, labelChanges } from "../shared/columns";
+import { ARCHIVED_LABEL, KANBAN_LABELS, columnFor, labelChanges } from "../shared/columns";
 import { gh } from "./gh";
 
 const ISSUE_FIELDS = "number,title,body,url,state,stateReason,labels,assignees,updatedAt,closedByPullRequestsReferences";
@@ -41,7 +41,7 @@ function toCard(raw: RawIssue): RpcOutput<typeof createCardRpc> {
       hasOpenPullRequest: (raw.closedByPullRequestsReferences?.length ?? 0) > 0,
     }),
     labels: raw.labels
-      .filter((label) => !KANBAN_LABELS.includes(label.name))
+      .filter((label) => !KANBAN_LABELS.includes(label.name) && label.name !== ARCHIVED_LABEL)
       .map(({ name, color }) => ({ name, color })),
     assignees: raw.assignees.map((assignee) => assignee.login),
     updatedAt: raw.updatedAt,
@@ -72,6 +72,7 @@ export async function loadBoard(
     (issue) => issue.stateReason !== "NOT_PLANNED" && issue.stateReason !== "DUPLICATE",
   );
   const cards = [...openIssues, ...closedIssues]
+    .filter((issue) => !issue.labels.some((label) => label.name === ARCHIVED_LABEL))
     .map(toCard)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
@@ -95,34 +96,19 @@ export async function createCard(
   return toCard(issue);
 }
 
+const LABELS = [
+  { name: "kanban:in-progress", color: "FBCA04", description: "Kanban: in progress" },
+  { name: "kanban:in-review", color: "8250DF", description: "Kanban: in review" },
+  { name: ARCHIVED_LABEL, color: "D0D7DE", description: "Kanban: archived, hidden from the board" },
+];
+
 export async function ensureLabels(repo: string): Promise<void> {
   if (reposWithLabels.has(repo)) return;
-  await Promise.all([
-    gh([
-      "label",
-      "create",
-      "kanban:in-progress",
-      "--repo",
-      repo,
-      "--color",
-      "FBCA04",
-      "--description",
-      "Kanban: in progress",
-      "--force",
-    ]),
-    gh([
-      "label",
-      "create",
-      "kanban:in-review",
-      "--repo",
-      repo,
-      "--color",
-      "8250DF",
-      "--description",
-      "Kanban: in review",
-      "--force",
-    ]),
-  ]);
+  await Promise.all(
+    LABELS.map((l) =>
+      gh(["label", "create", l.name, "--repo", repo, "--color", l.color, "--description", l.description, "--force"]),
+    ),
+  );
   reposWithLabels.add(repo);
 }
 
@@ -162,8 +148,12 @@ export async function archiveCard(
   const { state } = JSON.parse(
     await gh(["issue", "view", String(number), "--repo", repo, "--json", "state"]),
   ) as Pick<RawIssue, "state">;
-  // A closed issue keeps its close reason, so reopen it to close it again as not planned.
-  if (state.toUpperCase() === "CLOSED") await gh(["issue", "reopen", String(number), "--repo", repo]);
-  await gh(["issue", "close", String(number), "--repo", repo, "--reason", "not planned"]);
+  if (state.toUpperCase() === "CLOSED") {
+    // Already done: hide it with a label so GitHub still says it was completed.
+    await ensureLabels(repo);
+    await gh(["issue", "edit", String(number), "--repo", repo, "--add-label", ARCHIVED_LABEL]);
+  } else {
+    await gh(["issue", "close", String(number), "--repo", repo, "--reason", "not planned"]);
+  }
   return {};
 }

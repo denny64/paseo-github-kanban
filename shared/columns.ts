@@ -14,6 +14,9 @@ export type ColumnId = (typeof COLUMNS)[number]["id"];
 
 export const KANBAN_LABELS: readonly string[] = COLUMNS.flatMap((c) => (c.label ? [c.label] : []));
 
+// Hides a done card without changing why the issue was closed.
+export const ARCHIVED_LABEL = "kanban:archived";
+
 export function columnFor(issue: { state: string; labels: readonly string[]; hasOpenPullRequest?: boolean }): ColumnId {
   if (issue.state.toUpperCase() === "CLOSED") return "done";
   // A pull request that will close the issue ("Closes #N") means it's in review,

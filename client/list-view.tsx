@@ -2,7 +2,7 @@ import { ScrollView } from "@getpaseo/plugin/client/react-native";
 import { Pressable, Text, View } from "react-native";
 import { COLUMNS, type ColumnId } from "../shared/board";
 import { timeAgo } from "../shared/time";
-import { ColumnHeading, IconButton, LabelPill, type Theme } from "./controls";
+import { ColumnHeading, IconButton, LabelPill, TextAction, type Theme } from "./controls";
 import { type BoardCard, cardRef } from "./use-boards";
 
 // Every card on one scrolling page, grouped by column in board order.
@@ -13,6 +13,8 @@ export function ListView({
   byColumn,
   onOpen,
   onStartAgent,
+  onArchive,
+  onClearDone,
 }: {
   theme: Theme;
   compact: boolean;
@@ -20,6 +22,8 @@ export function ListView({
   byColumn: Map<ColumnId, BoardCard[]>;
   onOpen(key: string): void;
   onStartAgent(key: string): void;
+  onArchive(key: string): void;
+  onClearDone(): void;
 }) {
   return (
     <ScrollView
@@ -30,7 +34,17 @@ export function ListView({
         const cards = byColumn.get(column.id)!;
         return (
           <View key={column.id} style={{ gap: 6 }}>
-            <ColumnHeading theme={theme} column={column.id} title={column.title} count={cards.length} />
+            <ColumnHeading
+              theme={theme}
+              column={column.id}
+              title={column.title}
+              count={cards.length}
+              trailing={
+                column.id === "done" && cards.length > 0 ? (
+                  <TextAction theme={theme} label="Clear" accessibilityLabel="Archive all done cards" onPress={onClearDone} />
+                ) : null
+              }
+            />
             {cards.length === 0 ? (
               <Text style={{ color: theme.colors.foregroundMuted, fontSize: 13 }}>No cards</Text>
             ) : (
@@ -53,6 +67,7 @@ export function ListView({
                     first={index === 0}
                     onPress={() => onOpen(card.key)}
                     onStartAgent={() => onStartAgent(card.key)}
+                    onArchive={() => onArchive(card.key)}
                   />
                 ))}
               </View>
@@ -72,6 +87,7 @@ function ListRow({
   first,
   onPress,
   onStartAgent,
+  onArchive,
 }: {
   theme: Theme;
   card: BoardCard;
@@ -80,6 +96,7 @@ function ListRow({
   first: boolean;
   onPress(): void;
   onStartAgent(): void;
+  onArchive(): void;
 }) {
   const muted = { color: theme.colors.foregroundMuted, fontSize: 12 };
   const age = timeAgo(card.updatedAt);
@@ -127,11 +144,11 @@ function ListRow({
         </Text>
       ) : null}
       <Text style={[muted, { minWidth: 32, textAlign: "right", fontVariant: ["tabular-nums"] }]}>{age}</Text>
-      {/* Keeps rows aligned: done cards get an empty slot instead of the button. */}
+      {/* Same slot either way so rows line up: start open cards, archive done ones. */}
       {card.column !== "done" ? (
         <IconButton theme={theme} icon="Play" accessibilityLabel={`Start an agent on ${ref}`} onPress={onStartAgent} />
       ) : (
-        <View style={{ width: 22 }} />
+        <IconButton theme={theme} icon="Archive" accessibilityLabel={`Archive ${ref}`} onPress={onArchive} />
       )}
     </Pressable>
   );

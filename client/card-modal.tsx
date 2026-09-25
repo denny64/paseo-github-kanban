@@ -117,7 +117,9 @@ export function CardModal({
             <Button theme={theme} label="Archive" icon="Archive" onPress={onArchive} />
           </View>
           <Text style={{ color: theme.colors.foregroundMuted, fontSize: 12 }}>
-            Archive closes the issue as not planned and hides it. Reopen it on GitHub to bring it back.
+            {card.column === "done"
+              ? "Archive hides this card with the kanban:archived label; the issue stays closed as completed."
+              : "Archive closes the issue as not planned and hides it. Reopen it on GitHub to bring it back."}
           </Text>
         </View>
       </Modal.Content>

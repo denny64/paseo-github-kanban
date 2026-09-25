@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { boardSettings, COLUMNS, type ColumnId } from "../shared/board";
 import { CardModal, StartAgentModal } from "./card-modal";
-import { Button, ColumnHeading, columnColor, errorMessage, IconButton, LabelPill, type Theme } from "./controls";
+import { Button, ColumnHeading, columnColor, errorMessage, IconButton, LabelPill, TextAction, type Theme } from "./controls";
 import { type CardDrag, DragOverlay, Draggable, useCardDrag } from "./drag";
 import { ListView } from "./list-view";
 import { NewCardModal } from "./new-card-modal";
@@ -49,6 +49,7 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
 
   const [openCard, setOpenCard] = useState<string | null>(null);
   const [startFor, setStartFor] = useState<string | null>(null);
+  const [clearingDone, setClearingDone] = useState(false);
   const [creating, setCreating] = useState(false);
   const [pickingProject, setPickingProject] = useState(false);
   const [compactColumn, setCompactColumn] = useState<ColumnId>("todo");
@@ -101,6 +102,17 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
     saveSettings({ view: next });
   };
 
+  const archiveKey = (key: string) => {
+    const target = boards.cards.find((c) => c.key === key);
+    if (target) archive.mutate(target);
+  };
+  const clearDone = () => {
+    setClearingDone(false);
+    const done = byColumn.get("done")!;
+    for (const c of done) archive.mutate(c);
+    toast.show(`Archived ${done.length} done ${done.length === 1 ? "card" : "cards"}.`);
+  };
+
   let body: React.ReactNode;
   if (projects.isError) {
     body = <Message styles={styles} text={errorMessage(projects.error)} />;
@@ -123,6 +135,8 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
         byColumn={byColumn}
         onOpen={setOpenCard}
         onStartAgent={setStartFor}
+        onArchive={archiveKey}
+        onClearDone={() => setClearingDone(true)}
       />
     );
   } else if (layout.compact) {
@@ -150,6 +164,7 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
           drag={drag}
           onOpen={setOpenCard}
           onStartAgent={setStartFor}
+          onArchive={archiveKey}
           compact
         />
       </>
@@ -168,6 +183,8 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
             drag={drag}
             onOpen={setOpenCard}
             onStartAgent={setStartFor}
+            onArchive={archiveKey}
+            onClearDone={() => setClearingDone(true)}
           />
         ))}
       </View>
@@ -284,6 +301,19 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
         />
       ) : null}
 
+      <Modal title="Clear done cards" open={clearingDone} onOpenChange={setClearingDone}>
+        <Modal.Content>
+          <Text style={{ color: theme.colors.foreground, fontSize: 14, lineHeight: 20 }}>
+            Hide all {byColumn.get("done")!.length} cards in Done? Each issue gets the kanban:archived label and stays closed as
+            completed. Remove the label on GitHub to bring a card back.
+          </Text>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <Button theme={theme} label="Clear done" icon="Archive" primary onPress={clearDone} />
+            <Button theme={theme} label="Cancel" onPress={() => setClearingDone(false)} />
+          </View>
+        </Modal.Content>
+      </Modal>
+
       {startCard ? (
         <StartAgentModal
           theme={theme}
@@ -367,6 +397,8 @@ function Column({
   compact,
   onOpen,
   onStartAgent,
+  onArchive,
+  onClearDone,
 }: {
   theme: Theme;
   column?: ColumnId;
@@ -377,6 +409,8 @@ function Column({
   compact?: boolean;
   onOpen(key: string): void;
   onStartAgent(key: string): void;
+  onArchive(key: string): void;
+  onClearDone?(): void;
 }) {
   const dropping = !!column && drag.hover === column && drag.dragging?.card.column !== column;
   return (
@@ -394,7 +428,19 @@ function Column({
         backgroundColor: dropping ? theme.colors.surface1 : "transparent",
       }}
     >
-      {column && title ? <ColumnHeading theme={theme} column={column} title={title} count={cards.length} /> : null}
+      {column && title ? (
+        <ColumnHeading
+          theme={theme}
+          column={column}
+          title={title}
+          count={cards.length}
+          trailing={
+            column === "done" && cards.length > 0 && onClearDone ? (
+              <TextAction theme={theme} label="Clear" accessibilityLabel="Archive all done cards" onPress={onClearDone} />
+            ) : null
+          }
+        />
+      ) : null}
       <ScrollView
         style={{ flex: 1 }}
         scrollEnabled={!drag.active}
@@ -411,6 +457,7 @@ function Column({
                 showRepo={showRepo}
                 onPress={() => !drag.justDropped() && onOpen(card.key)}
                 onStartAgent={() => onStartAgent(card.key)}
+                onArchive={() => onArchive(card.key)}
                 onLongPress={drag.arm ? () => drag.arm!(card.key) : undefined}
                 onPressOut={drag.disarm}
               />
@@ -431,6 +478,7 @@ function CardTile({
   onLongPress,
   onPressOut,
   onStartAgent,
+  onArchive,
 }: {
   theme: Theme;
   card: BoardCard;
@@ -441,6 +489,7 @@ function CardTile({
   onLongPress?(): void;
   onPressOut?(): void;
   onStartAgent?(): void;
+  onArchive?(): void;
 }) {
   const ref = cardRef(card, showRepo);
   return (
@@ -467,6 +516,9 @@ function CardTile({
         </Text>
         {onStartAgent && card.column !== "done" ? (
           <IconButton theme={theme} icon="Play" accessibilityLabel={`Start an agent on ${ref}`} onPress={onStartAgent} />
+        ) : null}
+        {onArchive && card.column === "done" ? (
+          <IconButton theme={theme} icon="Archive" accessibilityLabel={`Archive ${ref}`} onPress={onArchive} />
         ) : null}
       </View>
       <Text style={{ color: theme.colors.foreground, fontSize: 14, lineHeight: 20 }} numberOfLines={3} selectable={false}>

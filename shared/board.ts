@@ -48,8 +48,8 @@ export const moveCardRpc = defineRpc({
   output: cardSchema,
 });
 
-// Close as "not planned". The board hides those, so the card disappears;
-// reopening the issue on GitHub brings it back.
+// Hide a card: an open issue is closed as "not planned"; a done one gets the
+// kanban:archived label so its completed status stays. Both are hidden.
 export const archiveCardRpc = defineRpc({
   name: "card.archive",
   input: z.object({ repo: z.string(), number: z.number().int().positive() }),

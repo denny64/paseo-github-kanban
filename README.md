@@ -29,7 +29,9 @@ This plugin needs:
 
 Drag a card to another column to move it. On touch screens, long-press it first, and on a phone drop it on the column tabs. You can also use the buttons in the card view. Moving a card changes its label, or closes or reopens the issue. You can manage the same board from GitHub, the `gh` CLI, or an agent. The labels are created the first time you move a card.
 
-In the card view, **Close issue** closes it as completed and the card moves to Done. **Archive** closes it as "not planned", which hides it from the board. Reopen the issue on GitHub to bring it back.
+In the card view, **Close issue** closes it as completed and the card moves to Done. **Archive** hides the card. An open issue is closed as "not planned". A done issue stays closed as completed and gets the `kanban:archived` label. Reopen the issue, or remove the label, on GitHub to bring it back.
+
+To clear out Done, use the archive button on a done card or **Clear** in the Done column's heading.
 
 **New card** creates an issue. The board refreshes every minute and when you press refresh.
 
