@@ -1,4 +1,4 @@
-import type { PaseoAgentConfig, PaseoApi, PaseoProject } from "@getpaseo/client";
+import type { PaseoAgentConfig, PaseoApi } from "@getpaseo/client";
 import { usePaseo, useSettings } from "@getpaseo/plugin/client";
 import { Modal, TextInput, useToast } from "@getpaseo/plugin/client/react-native";
 import { ExternalLink, SettingsCard, SettingsSelect } from "@getpaseo/plugin/client/ui";
@@ -7,6 +7,7 @@ import { useState } from "react";
 import { Text, View } from "react-native";
 import { boardSettings, type Card, COLUMNS, type ColumnId } from "../shared/board";
 import { Button, errorMessage, inputStyle, LabelPill, type Theme } from "./controls";
+import type { BoardCard } from "./use-boards";
 
 export function agentPrompt(card: Card, repo: string): string {
   return [
@@ -55,23 +56,21 @@ async function loadAgentOptions(paseo: PaseoApi, cwd: string) {
 export function CardModal({
   theme,
   card,
-  repo,
-  project,
+  reference,
   onClose,
   onMove,
   onAgentStarted,
 }: {
   theme: Theme;
-  card: Card;
-  repo: string;
-  project: PaseoProject;
+  card: BoardCard;
+  reference: string;
   onClose(): void;
   onMove(column: ColumnId): void;
   onAgentStarted(agentId: string): void;
 }) {
   const heading = { color: theme.colors.foregroundMuted, fontSize: 12, fontWeight: "600" as const };
   return (
-    <Modal title={`#${card.number}`} open onOpenChange={(open) => !open && onClose()}>
+    <Modal title={reference} open onOpenChange={(open) => !open && onClose()}>
       <Modal.Content>
         <Text style={{ color: theme.colors.foreground, fontSize: 18, fontWeight: "600", lineHeight: 24 }} selectable>
           {card.title}
@@ -105,7 +104,7 @@ export function CardModal({
         </View>
 
         {card.column !== "done" ? (
-          <StartAgent theme={theme} card={card} repo={repo} project={project} onStarted={onAgentStarted} />
+          <StartAgent theme={theme} card={card} onStarted={onAgentStarted} />
         ) : null}
       </Modal.Content>
     </Modal>
@@ -115,16 +114,14 @@ export function CardModal({
 function StartAgent({
   theme,
   card,
-  repo,
-  project,
   onStarted,
 }: {
   theme: Theme;
-  card: Card;
-  repo: string;
-  project: PaseoProject;
+  card: BoardCard;
   onStarted(agentId: string): void;
 }) {
+  const { project } = card;
+  const repo = card.repo.nameWithOwner;
   const paseo = usePaseo();
   const toast = useToast();
   const settings = useSettings(boardSettings);

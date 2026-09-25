@@ -1,25 +1,17 @@
 import type { PaseoProject } from "@getpaseo/client";
 import type { PluginSurfaceProps } from "@getpaseo/plugin/client";
-import { usePaseo, useRpc, useSettings } from "@getpaseo/plugin/client";
+import { usePaseo, useSettings } from "@getpaseo/plugin/client";
 import { Icon, Modal, ScrollView, useToast } from "@getpaseo/plugin/client/react-native";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import {
-  boardSettings,
-  type Card,
-  COLUMNS,
-  type ColumnId,
-  loadBoardRpc,
-  moveCardRpc,
-  type Repo,
-} from "../shared/board";
-import { Button, ColumnHeading, columnColor, errorMessage, LabelPill, type Theme } from "./controls";
+import { boardSettings, COLUMNS, type ColumnId } from "../shared/board";
 import { CardModal } from "./card-modal";
+import { Button, ColumnHeading, columnColor, errorMessage, LabelPill, type Theme } from "./controls";
 import { ListView } from "./list-view";
 import { NewCardModal } from "./new-card-modal";
+import { type BoardCard, cardRef, useBoards, useMoveCard, usePutCard } from "./use-boards";
 
-type Board = { repo: Repo; cards: Card[] };
 type ViewMode = "board" | "list";
 
 export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) {
@@ -27,8 +19,6 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
   const toast = useToast();
   const queryClient = useQueryClient();
   const settings = useSettings(boardSettings);
-  const loadBoard = useRpc(loadBoardRpc);
-  const moveCard = useRpc(moveCardRpc);
 
   const projects = useQuery({
     queryKey: ["projects"],
@@ -40,59 +30,33 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
     [paseo, queryClient],
   );
 
-  const savedProjectId = settings.status === "ready" ? settings.values.projectId : null;
+  const values = settings.status === "ready" ? settings.values : null;
+  const showAll = !!values?.allProjects;
   const project =
     settings.status === "loading"
       ? undefined
-      : (projects.data?.find((p) => p.projectId === savedProjectId) ?? projects.data?.[0]);
+      : (projects.data?.find((p) => p.projectId === values?.projectId) ?? projects.data?.[0]);
+  const scope = settings.status === "loading" ? [] : showAll ? (projects.data ?? []) : project ? [project] : [];
 
-  const boardKey = ["board", project?.projectRootPath];
-  const board = useQuery({
-    queryKey: boardKey,
-    queryFn: () => loadBoard({ cwd: project!.projectRootPath }),
-    enabled: !!project,
-    refetchInterval: 60_000,
-  });
+  // ponytail: one gh round trip per repo per refresh, so the all-projects view
+  // polls every 5 min instead of every minute; move to a single GraphQL query if that bites.
+  const boards = useBoards(scope, showAll ? 300_000 : 60_000);
+  const putCard = usePutCard();
+  const move = useMoveCard((error) => toast.error(`Couldn't move the card: ${errorMessage(error)}`));
 
-  const putCard = (card: Card) =>
-    queryClient.setQueryData<Board>(boardKey, (b) =>
-      b && {
-        ...b,
-        cards: b.cards.some((c) => c.number === card.number)
-          ? b.cards.map((c) => (c.number === card.number ? card : c))
-          : [card, ...b.cards],
-      },
-    );
-
-  const move = useMutation({
-    mutationFn: moveCard,
-    onMutate: async ({ number, column }) => {
-      await queryClient.cancelQueries({ queryKey: boardKey });
-      const previous = queryClient.getQueryData<Board>(boardKey);
-      const card = previous?.cards.find((c) => c.number === number);
-      if (card) putCard({ ...card, column });
-      return { previous };
-    },
-    onError: (error, _input, context) => {
-      queryClient.setQueryData(boardKey, context?.previous);
-      toast.error(`Couldn't move the card: ${errorMessage(error)}`);
-    },
-    onSuccess: putCard,
-  });
-
-  const [openCard, setOpenCard] = useState<number | null>(null);
+  const [openCard, setOpenCard] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [pickingProject, setPickingProject] = useState(false);
   const [compactColumn, setCompactColumn] = useState<ColumnId>("todo");
   // Local override so the toggle flips instantly; the saved setting catches up.
   const [viewOverride, setViewOverride] = useState<ViewMode | null>(null);
-  const view = viewOverride ?? (settings.status === "ready" ? settings.values.view : "board");
+  const view = viewOverride ?? values?.view ?? "board";
 
   const byColumn = useMemo(() => {
-    const groups = new Map<ColumnId, Card[]>(COLUMNS.map((c) => [c.id, []]));
-    for (const card of board.data?.cards ?? []) groups.get(card.column)!.push(card);
+    const groups = new Map<ColumnId, BoardCard[]>(COLUMNS.map((c) => [c.id, []]));
+    for (const card of boards.cards) groups.get(card.column)!.push(card);
     return groups;
-  }, [board.data]);
+  }, [boards.cards]);
 
   const styles = useMemo(
     () => ({
@@ -113,6 +77,7 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
       spacer: { flex: 1 },
       message: { padding: layout.compact ? 16 : 24, gap: 12, alignItems: "flex-start" as const },
       messageText: { color: theme.colors.foregroundMuted, fontSize: 14 },
+      notice: { color: theme.colors.foregroundMuted, fontSize: 12, paddingHorizontal: layout.compact ? 16 : 24, paddingBottom: 8 },
       columns: { flex: 1, flexDirection: "row" as const, gap: 16, paddingHorizontal: 24, paddingBottom: 16 },
       tabs: { flexGrow: 0, paddingHorizontal: 16 },
       tabsContent: { gap: 8, paddingBottom: 8 },
@@ -120,18 +85,16 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
     [theme, layout.compact],
   );
 
-  const selectProject = (project: PaseoProject) => {
-    setPickingProject(false);
-    if (settings.status === "ready") {
-      void settings.save({ ...settings.values, projectId: project.projectId }, settings.revision);
-    }
+  const saveSettings = (patch: Partial<NonNullable<typeof values>>) => {
+    if (settings.status === "ready") void settings.save({ ...settings.values, ...patch }, settings.revision);
   };
-
+  const selectProject = (next: PaseoProject | "all") => {
+    setPickingProject(false);
+    saveSettings(next === "all" ? { allProjects: true } : { allProjects: false, projectId: next.projectId });
+  };
   const selectView = (next: ViewMode) => {
     setViewOverride(next);
-    if (settings.status === "ready") {
-      void settings.save({ ...settings.values, view: next }, settings.revision);
-    }
+    saveSettings({ view: next });
   };
 
   let body: React.ReactNode;
@@ -139,16 +102,16 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
     body = <Message styles={styles} text={errorMessage(projects.error)} />;
   } else if (projects.data && projects.data.length === 0) {
     body = <Message styles={styles} text="Add a git project in Paseo to get a board for its GitHub issues." />;
-  } else if (board.isError) {
+  } else if (boards.repos.length === 0 && boards.failed.length > 0 && !boards.fetching) {
     body = (
-      <Message styles={styles} text={errorMessage(board.error)}>
-        <Button theme={theme} label="Try again" icon="RotateCw" onPress={() => board.refetch()} />
+      <Message styles={styles} text={errorMessage(boards.failed[0].error)}>
+        <Button theme={theme} label="Try again" icon="RotateCw" onPress={() => boards.refetch()} />
       </Message>
     );
-  } else if (!board.data) {
+  } else if (!boards.ready || scope.length === 0) {
     body = <Message styles={styles} text="Loading issues…" />;
   } else if (view === "list") {
-    body = <ListView theme={theme} compact={layout.compact} byColumn={byColumn} onOpen={setOpenCard} />;
+    body = <ListView theme={theme} compact={layout.compact} showRepo={showAll} byColumn={byColumn} onOpen={setOpenCard} />;
   } else if (layout.compact) {
     body = (
       <>
@@ -165,7 +128,7 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
             />
           ))}
         </ScrollView>
-        <Column theme={theme} cards={byColumn.get(compactColumn)!} onOpen={setOpenCard} compact />
+        <Column theme={theme} cards={byColumn.get(compactColumn)!} showRepo={showAll} onOpen={setOpenCard} compact />
       </>
     );
   } else {
@@ -178,6 +141,7 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
             column={column.id}
             title={column.title}
             cards={byColumn.get(column.id)!}
+            showRepo={showAll}
             onOpen={setOpenCard}
           />
         ))}
@@ -185,7 +149,9 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
     );
   }
 
-  const card = board.data?.cards.find((c) => c.number === openCard);
+  const card = boards.cards.find((c) => c.key === openCard);
+  // Some repos loaded and some didn't: say which, without hiding the rest.
+  const skipped = showAll && boards.repos.length > 0 ? boards.failed.map((f) => f.project.projectDisplayName) : [];
 
   return (
     <View style={styles.screen}>
@@ -198,11 +164,17 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
         >
           <View style={styles.projectRow}>
             <Text style={styles.projectName} numberOfLines={1}>
-              {project?.projectDisplayName ?? "Kanban"}
+              {showAll ? "All projects" : (project?.projectDisplayName ?? "Kanban")}
             </Text>
             <Icon name="ChevronDown" size={16} color={theme.colors.foregroundMuted} />
           </View>
-          {board.data ? <Text style={styles.muted}>{board.data.repo.nameWithOwner} · GitHub issues</Text> : null}
+          {boards.repos.length > 0 ? (
+            <Text style={styles.muted}>
+              {showAll
+                ? `${boards.repos.length} ${boards.repos.length === 1 ? "repo" : "repos"} · GitHub issues`
+                : `${boards.repos[0].repo.nameWithOwner} · GitHub issues`}
+            </Text>
+          ) : null}
         </Pressable>
         <View style={styles.spacer} />
         <ViewToggle theme={theme} view={view} onChange={selectView} />
@@ -210,43 +182,70 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
           theme={theme}
           icon="RotateCw"
           accessibilityLabel="Refresh"
-          disabled={!project || board.isFetching}
-          onPress={() => board.refetch()}
+          disabled={scope.length === 0 || boards.fetching}
+          onPress={() => boards.refetch()}
         />
-        <Button theme={theme} label="New card" icon="Plus" primary disabled={!board.data} onPress={() => setCreating(true)} />
+        <Button
+          theme={theme}
+          label="New card"
+          icon="Plus"
+          primary
+          disabled={boards.repos.length === 0}
+          onPress={() => setCreating(true)}
+        />
       </View>
+
+      {skipped.length > 0 ? (
+        <Text style={styles.notice} numberOfLines={2}>
+          Couldn't load {skipped.join(", ")}. Open {skipped.length === 1 ? "it" : "one"} on its own to see why.
+        </Text>
+      ) : null}
 
       {body}
 
       <Modal title="Choose project" open={pickingProject} onOpenChange={setPickingProject}>
         <Modal.Content>
+          <ProjectRow
+            theme={theme}
+            title="All projects"
+            subtitle="Every git project on this host, on one board"
+            selected={showAll}
+            onPress={() => selectProject("all")}
+          />
           {(projects.data ?? []).map((p) => (
-            <ProjectRow key={p.projectId} theme={theme} project={p} selected={p.projectId === project?.projectId} onPress={() => selectProject(p)} />
+            <ProjectRow
+              key={p.projectId}
+              theme={theme}
+              title={p.projectDisplayName}
+              subtitle={p.projectRootPath}
+              selected={!showAll && p.projectId === project?.projectId}
+              onPress={() => selectProject(p)}
+            />
           ))}
         </Modal.Content>
       </Modal>
 
-      {board.data && project ? (
+      {boards.repos.length > 0 ? (
         <NewCardModal
           theme={theme}
           open={creating}
-          repo={board.data.repo.nameWithOwner}
+          targets={boards.repos}
+          defaultProjectId={project?.projectId}
           onOpenChange={setCreating}
           onCreated={putCard}
         />
       ) : null}
 
-      {card && board.data && project ? (
+      {card ? (
         <CardModal
           theme={theme}
           card={card}
-          repo={board.data.repo.nameWithOwner}
-          project={project}
+          reference={cardRef(card, showAll)}
           onClose={() => setOpenCard(null)}
-          onMove={(column) => move.mutate({ repo: board.data!.repo.nameWithOwner, number: card.number, column })}
+          onMove={(column) => move.mutate({ card, column })}
           onAgentStarted={(agentId) => {
             setOpenCard(null);
-            move.mutate({ repo: board.data!.repo.nameWithOwner, number: card.number, column: "in-progress" });
+            move.mutate({ card, column: "in-progress" });
             navigation?.openAgent({ agentId });
           }}
         />
@@ -318,15 +317,17 @@ function Column({
   column,
   title,
   cards,
+  showRepo,
   compact,
   onOpen,
 }: {
   theme: Theme;
   column?: ColumnId;
   title?: string;
-  cards: Card[];
+  cards: BoardCard[];
+  showRepo: boolean;
   compact?: boolean;
-  onOpen(number: number): void;
+  onOpen(key: string): void;
 }) {
   return (
     <View style={{ flex: 1, minWidth: 0, gap: 8 }}>
@@ -338,18 +339,31 @@ function Column({
         {cards.length === 0 ? (
           <Text style={{ color: theme.colors.foregroundMuted, fontSize: 13, paddingVertical: 8 }}>No cards</Text>
         ) : (
-          cards.map((card) => <CardTile key={card.number} theme={theme} card={card} onPress={() => onOpen(card.number)} />)
+          cards.map((card) => (
+            <CardTile key={card.key} theme={theme} card={card} showRepo={showRepo} onPress={() => onOpen(card.key)} />
+          ))
         )}
       </ScrollView>
     </View>
   );
 }
 
-function CardTile({ theme, card, onPress }: { theme: Theme; card: Card; onPress(): void }) {
+function CardTile({
+  theme,
+  card,
+  showRepo,
+  onPress,
+}: {
+  theme: Theme;
+  card: BoardCard;
+  showRepo: boolean;
+  onPress(): void;
+}) {
+  const ref = cardRef(card, showRepo);
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Issue ${card.number}: ${card.title}`}
+      accessibilityLabel={`${ref}: ${card.title}`}
       onPress={onPress}
       style={({ pressed }) => ({
         gap: 6,
@@ -360,7 +374,9 @@ function CardTile({ theme, card, onPress }: { theme: Theme; card: Card; onPress(
         backgroundColor: pressed ? theme.colors.surface2 : theme.colors.surface1,
       })}
     >
-      <Text style={{ color: theme.colors.foregroundMuted, fontSize: 12 }}>#{card.number}</Text>
+      <Text style={{ color: theme.colors.foregroundMuted, fontSize: 12 }} numberOfLines={1}>
+        {ref}
+      </Text>
       <Text style={{ color: theme.colors.foreground, fontSize: 14, lineHeight: 20 }} numberOfLines={3}>
         {card.title}
       </Text>
@@ -421,12 +437,14 @@ function ColumnTab({
 
 function ProjectRow({
   theme,
-  project,
+  title,
+  subtitle,
   selected,
   onPress,
 }: {
   theme: Theme;
-  project: PaseoProject;
+  title: string;
+  subtitle: string;
   selected: boolean;
   onPress(): void;
 }) {
@@ -434,7 +452,7 @@ function ProjectRow({
     <Pressable
       accessibilityRole="button"
       accessibilityState={{ selected }}
-      accessibilityLabel={project.projectDisplayName}
+      accessibilityLabel={title}
       onPress={onPress}
       style={({ pressed }) => ({
         flexDirection: "row",
@@ -446,9 +464,9 @@ function ProjectRow({
       })}
     >
       <View style={{ flex: 1, gap: 2 }}>
-        <Text style={{ color: theme.colors.foreground, fontSize: 14 }}>{project.projectDisplayName}</Text>
+        <Text style={{ color: theme.colors.foreground, fontSize: 14 }}>{title}</Text>
         <Text style={{ color: theme.colors.foregroundMuted, fontSize: 12 }} numberOfLines={1}>
-          {project.projectRootPath}
+          {subtitle}
         </Text>
       </View>
       {selected ? <Icon name="Check" size={16} color={theme.colors.accent} /> : null}

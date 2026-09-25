@@ -55,6 +55,8 @@ export const boardSettings = defineSettings({
   schema: z.object({
     // Last opened Paseo project, so the board reopens where you left it.
     projectId: z.string().nullable().default(null),
+    // Every git project's issues on one board instead of a single project.
+    allProjects: z.boolean().default(false),
     // Last agent used from "Start agent": "profile:<id>" or "model:<provider>/<model>".
     agent: z.string().nullable().default(null),
     view: z.enum(["board", "list"]).default("board"),

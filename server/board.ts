@@ -9,6 +9,9 @@ import { gh } from "./gh";
 
 const ISSUE_FIELDS = "number,title,body,url,state,stateReason,labels,assignees,updatedAt";
 const reposWithLabels = new Set<string>();
+// ponytail: a checkout's GitHub remote is resolved once per daemon process;
+// `paseo plugin reload` picks up a changed remote.
+const repoByCwd = new Map<string, RpcOutput<typeof loadBoardRpc>["repo"]>();
 
 type RawIssue = {
   number: number;
@@ -41,12 +44,15 @@ function toCard(raw: RawIssue): RpcOutput<typeof createCardRpc> {
 export async function loadBoard(
   { cwd }: RpcInput<typeof loadBoardRpc>,
 ): Promise<RpcOutput<typeof loadBoardRpc>> {
-  let repo: RpcOutput<typeof loadBoardRpc>["repo"];
-  try {
-    repo = JSON.parse(await gh(["repo", "view", "--json", "nameWithOwner,url"], cwd));
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`No GitHub repository found for this project: ${message}`);
+  let repo = repoByCwd.get(cwd);
+  if (!repo) {
+    try {
+      repo = JSON.parse(await gh(["repo", "view", "--json", "nameWithOwner,url"], cwd)) as RpcOutput<typeof loadBoardRpc>["repo"];
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`No GitHub repository found for this project: ${message}`);
+    }
+    repoByCwd.set(cwd, repo);
   }
 
   // ponytail: capped at 500 open + 30 closed issues; paginate if a board outgrows that.

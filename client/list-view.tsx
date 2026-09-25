@@ -1,20 +1,23 @@
 import { ScrollView } from "@getpaseo/plugin/client/react-native";
 import { Pressable, Text, View } from "react-native";
-import { type Card, COLUMNS, type ColumnId } from "../shared/board";
+import { COLUMNS, type ColumnId } from "../shared/board";
 import { timeAgo } from "../shared/time";
 import { ColumnHeading, LabelPill, type Theme } from "./controls";
+import { type BoardCard, cardRef } from "./use-boards";
 
 // Every card on one scrolling page, grouped by column in board order.
 export function ListView({
   theme,
   compact,
+  showRepo,
   byColumn,
   onOpen,
 }: {
   theme: Theme;
   compact: boolean;
-  byColumn: Map<ColumnId, Card[]>;
-  onOpen(number: number): void;
+  showRepo: boolean;
+  byColumn: Map<ColumnId, BoardCard[]>;
+  onOpen(key: string): void;
 }) {
   return (
     <ScrollView
@@ -40,12 +43,13 @@ export function ListView({
               >
                 {cards.map((card, index) => (
                   <ListRow
-                    key={card.number}
+                    key={card.key}
                     theme={theme}
                     card={card}
                     compact={compact}
+                    showRepo={showRepo}
                     first={index === 0}
-                    onPress={() => onOpen(card.number)}
+                    onPress={() => onOpen(card.key)}
                   />
                 ))}
               </View>
@@ -61,21 +65,24 @@ function ListRow({
   theme,
   card,
   compact,
+  showRepo,
   first,
   onPress,
 }: {
   theme: Theme;
-  card: Card;
+  card: BoardCard;
   compact: boolean;
+  showRepo: boolean;
   first: boolean;
   onPress(): void;
 }) {
   const muted = { color: theme.colors.foregroundMuted, fontSize: 12 };
   const age = timeAgo(card.updatedAt);
+  const ref = cardRef(card, showRepo);
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Issue ${card.number}: ${card.title}, updated ${age === "now" ? "just now" : `${age} ago`}`}
+      accessibilityLabel={`${ref}: ${card.title}, updated ${age === "now" ? "just now" : `${age} ago`}`}
       onPress={onPress}
       style={({ pressed }) => ({
         flexDirection: "row",
@@ -88,7 +95,13 @@ function ListRow({
         backgroundColor: pressed ? theme.colors.surface2 : "transparent",
       })}
     >
-      <Text style={[muted, { minWidth: 40, fontVariant: ["tabular-nums"] }]}>#{card.number}</Text>
+      {/* Mixed repos get a fixed-width reference column so titles still line up. */}
+      <Text
+        style={[muted, showRepo && !compact ? { width: 170 } : { minWidth: 40 }, { fontVariant: ["tabular-nums"] }]}
+        numberOfLines={1}
+      >
+        {ref}
+      </Text>
       <Text
         style={{ flex: 1, color: theme.colors.foreground, fontSize: 14, lineHeight: 20 }}
         numberOfLines={compact ? 2 : 1}
