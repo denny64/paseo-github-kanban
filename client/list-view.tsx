@@ -2,7 +2,7 @@ import { ScrollView } from "@getpaseo/plugin/client/react-native";
 import { Pressable, Text, View } from "react-native";
 import { COLUMNS, type ColumnId } from "../shared/board";
 import { timeAgo } from "../shared/time";
-import { ColumnHeading, LabelPill, type Theme } from "./controls";
+import { ColumnHeading, IconButton, LabelPill, type Theme } from "./controls";
 import { type BoardCard, cardRef } from "./use-boards";
 
 // Every card on one scrolling page, grouped by column in board order.
@@ -12,12 +12,14 @@ export function ListView({
   showRepo,
   byColumn,
   onOpen,
+  onStartAgent,
 }: {
   theme: Theme;
   compact: boolean;
   showRepo: boolean;
   byColumn: Map<ColumnId, BoardCard[]>;
   onOpen(key: string): void;
+  onStartAgent(key: string): void;
 }) {
   return (
     <ScrollView
@@ -50,6 +52,7 @@ export function ListView({
                     showRepo={showRepo}
                     first={index === 0}
                     onPress={() => onOpen(card.key)}
+                    onStartAgent={() => onStartAgent(card.key)}
                   />
                 ))}
               </View>
@@ -68,6 +71,7 @@ function ListRow({
   showRepo,
   first,
   onPress,
+  onStartAgent,
 }: {
   theme: Theme;
   card: BoardCard;
@@ -75,6 +79,7 @@ function ListRow({
   showRepo: boolean;
   first: boolean;
   onPress(): void;
+  onStartAgent(): void;
 }) {
   const muted = { color: theme.colors.foregroundMuted, fontSize: 12 };
   const age = timeAgo(card.updatedAt);
@@ -122,6 +127,12 @@ function ListRow({
         </Text>
       ) : null}
       <Text style={[muted, { minWidth: 32, textAlign: "right", fontVariant: ["tabular-nums"] }]}>{age}</Text>
+      {/* Keeps rows aligned: done cards get an empty slot instead of the button. */}
+      {card.column !== "done" ? (
+        <IconButton theme={theme} icon="Play" accessibilityLabel={`Start an agent on ${ref}`} onPress={onStartAgent} />
+      ) : (
+        <View style={{ width: 22 }} />
+      )}
     </Pressable>
   );
 }

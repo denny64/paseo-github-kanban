@@ -10,7 +10,7 @@ export type BoardCard = Card & { key: string; repo: Repo; project: PaseoProject 
 
 const boardKey = (project: PaseoProject) => ["board", project.projectRootPath];
 
-// GitHub's own cross-repo reference ("found_scraper#12") when repos are mixed.
+// GitHub's own cross-repo reference ("api#12") when repos are mixed.
 export function cardRef(card: BoardCard, showRepo: boolean): string {
   return showRepo ? `${card.repo.nameWithOwner.split("/")[1]}#${card.number}` : `#${card.number}`;
 }

@@ -111,3 +111,32 @@ export function ColumnHeading({
     </View>
   );
 }
+
+// Compact icon action for card tiles and list rows.
+export function IconButton({
+  theme,
+  icon,
+  accessibilityLabel,
+  onPress,
+}: {
+  theme: Theme;
+  icon: string;
+  accessibilityLabel: string;
+  onPress(): void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      hitSlop={8}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        padding: 4,
+        borderRadius: 6,
+        backgroundColor: pressed ? theme.colors.surface2 : "transparent",
+      })}
+    >
+      <Icon name={icon} size={14} color={theme.colors.foregroundMuted} />
+    </Pressable>
+  );
+}

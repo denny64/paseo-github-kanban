@@ -111,14 +111,40 @@ export function CardModal({
   );
 }
 
-function StartAgent({
+// "Start agent" straight from a card tile or list row, without the card view.
+export function StartAgentModal({
   theme,
   card,
+  reference,
+  onClose,
   onStarted,
 }: {
   theme: Theme;
   card: BoardCard;
+  reference: string;
+  onClose(): void;
   onStarted(agentId: string): void;
+}) {
+  return (
+    <Modal title={`Start agent on ${reference}`} open onOpenChange={(open) => !open && onClose()}>
+      <Modal.Content>
+        <Text style={{ color: theme.colors.foreground, fontSize: 16, fontWeight: "600", lineHeight: 22 }}>{card.title}</Text>
+        <StartAgent theme={theme} card={card} onStarted={onStarted} showHeading={false} />
+      </Modal.Content>
+    </Modal>
+  );
+}
+
+function StartAgent({
+  theme,
+  card,
+  onStarted,
+  showHeading = true,
+}: {
+  theme: Theme;
+  card: BoardCard;
+  onStarted(agentId: string): void;
+  showHeading?: boolean;
 }) {
   const { project } = card;
   const repo = card.repo.nameWithOwner;
@@ -172,7 +198,9 @@ function StartAgent({
 
   return (
     <View style={{ gap: 8 }}>
-      <Text style={{ color: theme.colors.foregroundMuted, fontSize: 12, fontWeight: "600" }}>START AN AGENT</Text>
+      {showHeading ? (
+        <Text style={{ color: theme.colors.foregroundMuted, fontSize: 12, fontWeight: "600" }}>START AN AGENT</Text>
+      ) : null}
       {agent ? (
         <SettingsCard>
           <SettingsSelect

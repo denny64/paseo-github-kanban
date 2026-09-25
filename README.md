@@ -31,13 +31,13 @@ Drag a card to another column to move it. On touch screens, long-press it first,
 
 **New card** creates an issue. The board refreshes every minute and when you press refresh.
 
-Choose **All projects** in the project picker to see every git project's issues on one board. Cards show GitHub's cross-repo reference, such as `found_scraper#12`. "New card" asks which project the issue belongs to. Projects that share a GitHub repo appear once. The combined board refreshes every 5 minutes instead of every minute.
+Choose **All projects** in the project picker to see every git project's issues on one board. Cards show GitHub's cross-repo reference, such as `api#12`. "New card" asks which project the issue belongs to. Projects that share a GitHub repo appear once. The combined board refreshes every 5 minutes instead of every minute.
 
 The toggle in the header switches between the board and a **list view**. The list shows every card on one page, grouped by column, with its labels, assignee and last update. Paseo remembers which view you chose.
 
 ## Starting an agent
 
-Open a card, choose an agent and edit the first message if you want, then press **Start agent**. The plugin:
+Press the ▶ button on a card or list row, or open the card, choose an agent and edit the first message if you want, then press **Start agent**. The plugin:
 
 1. Creates a workspace on a new worktree branched from the project.
 2. Starts the agent there with the issue attached.

@@ -6,8 +6,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { boardSettings, COLUMNS, type ColumnId } from "../shared/board";
-import { CardModal } from "./card-modal";
-import { Button, ColumnHeading, columnColor, errorMessage, LabelPill, type Theme } from "./controls";
+import { CardModal, StartAgentModal } from "./card-modal";
+import { Button, ColumnHeading, columnColor, errorMessage, IconButton, LabelPill, type Theme } from "./controls";
 import { type CardDrag, DragOverlay, Draggable, useCardDrag } from "./drag";
 import { ListView } from "./list-view";
 import { NewCardModal } from "./new-card-modal";
@@ -47,6 +47,7 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
   const drag = useCardDrag((card, column) => move.mutate({ card, column }));
 
   const [openCard, setOpenCard] = useState<string | null>(null);
+  const [startFor, setStartFor] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [pickingProject, setPickingProject] = useState(false);
   const [compactColumn, setCompactColumn] = useState<ColumnId>("todo");
@@ -113,7 +114,16 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
   } else if (!boards.ready || scope.length === 0) {
     body = <Message styles={styles} text="Loading issues…" />;
   } else if (view === "list") {
-    body = <ListView theme={theme} compact={layout.compact} showRepo={showAll} byColumn={byColumn} onOpen={setOpenCard} />;
+    body = (
+      <ListView
+        theme={theme}
+        compact={layout.compact}
+        showRepo={showAll}
+        byColumn={byColumn}
+        onOpen={setOpenCard}
+        onStartAgent={setStartFor}
+      />
+    );
   } else if (layout.compact) {
     body = (
       <>
@@ -132,7 +142,15 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
             />
           ))}
         </ScrollView>
-        <Column theme={theme} cards={byColumn.get(compactColumn)!} showRepo={showAll} drag={drag} onOpen={setOpenCard} compact />
+        <Column
+          theme={theme}
+          cards={byColumn.get(compactColumn)!}
+          showRepo={showAll}
+          drag={drag}
+          onOpen={setOpenCard}
+          onStartAgent={setStartFor}
+          compact
+        />
       </>
     );
   } else {
@@ -148,6 +166,7 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
             showRepo={showAll}
             drag={drag}
             onOpen={setOpenCard}
+            onStartAgent={setStartFor}
           />
         ))}
       </View>
@@ -155,6 +174,13 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
   }
 
   const card = boards.cards.find((c) => c.key === openCard);
+  const startCard = boards.cards.find((c) => c.key === startFor);
+  const agentStarted = (started: BoardCard, agentId: string) => {
+    setOpenCard(null);
+    setStartFor(null);
+    move.mutate({ card: started, column: "in-progress" });
+    navigation?.openAgent({ agentId });
+  };
   // Some repos loaded and some didn't: say which, without hiding the rest.
   const skipped = showAll && boards.repos.length > 0 ? boards.failed.map((f) => f.project.projectDisplayName) : [];
 
@@ -248,11 +274,17 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
           reference={cardRef(card, showAll)}
           onClose={() => setOpenCard(null)}
           onMove={(column) => move.mutate({ card, column })}
-          onAgentStarted={(agentId) => {
-            setOpenCard(null);
-            move.mutate({ card, column: "in-progress" });
-            navigation?.openAgent({ agentId });
-          }}
+          onAgentStarted={(agentId) => agentStarted(card, agentId)}
+        />
+      ) : null}
+
+      {startCard ? (
+        <StartAgentModal
+          theme={theme}
+          card={startCard}
+          reference={cardRef(startCard, showAll)}
+          onClose={() => setStartFor(null)}
+          onStarted={(agentId) => agentStarted(startCard, agentId)}
         />
       ) : null}
 
@@ -328,6 +360,7 @@ function Column({
   drag,
   compact,
   onOpen,
+  onStartAgent,
 }: {
   theme: Theme;
   column?: ColumnId;
@@ -337,6 +370,7 @@ function Column({
   drag: CardDrag;
   compact?: boolean;
   onOpen(key: string): void;
+  onStartAgent(key: string): void;
 }) {
   const dropping = !!column && drag.hover === column && drag.dragging?.card.column !== column;
   return (
@@ -370,6 +404,7 @@ function Column({
                 card={card}
                 showRepo={showRepo}
                 onPress={() => !drag.justDropped() && onOpen(card.key)}
+                onStartAgent={() => onStartAgent(card.key)}
                 onLongPress={drag.arm ? () => drag.arm!(card.key) : undefined}
                 onPressOut={drag.disarm}
               />
@@ -389,6 +424,7 @@ function CardTile({
   onPress,
   onLongPress,
   onPressOut,
+  onStartAgent,
 }: {
   theme: Theme;
   card: BoardCard;
@@ -398,6 +434,7 @@ function CardTile({
   onPress?(): void;
   onLongPress?(): void;
   onPressOut?(): void;
+  onStartAgent?(): void;
 }) {
   const ref = cardRef(card, showRepo);
   return (
@@ -418,9 +455,14 @@ function CardTile({
         backgroundColor: pressed || lifted ? theme.colors.surface2 : theme.colors.surface1,
       })}
     >
-      <Text style={{ color: theme.colors.foregroundMuted, fontSize: 12 }} numberOfLines={1} selectable={false}>
-        {ref}
-      </Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <Text style={{ flex: 1, color: theme.colors.foregroundMuted, fontSize: 12 }} numberOfLines={1} selectable={false}>
+          {ref}
+        </Text>
+        {onStartAgent && card.column !== "done" ? (
+          <IconButton theme={theme} icon="Play" accessibilityLabel={`Start an agent on ${ref}`} onPress={onStartAgent} />
+        ) : null}
+      </View>
       <Text style={{ color: theme.colors.foreground, fontSize: 14, lineHeight: 20 }} numberOfLines={3} selectable={false}>
         {card.title}
       </Text>
