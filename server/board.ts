@@ -7,7 +7,7 @@ import {
 import { KANBAN_LABELS, columnFor, labelChanges } from "../shared/columns";
 import { gh } from "./gh";
 
-const ISSUE_FIELDS = "number,title,body,url,state,stateReason,labels,assignees,updatedAt";
+const ISSUE_FIELDS = "number,title,body,url,state,stateReason,labels,assignees,updatedAt,closedByPullRequestsReferences";
 const reposWithLabels = new Set<string>();
 // ponytail: a checkout's GitHub remote is resolved once per daemon process;
 // `paseo plugin reload` picks up a changed remote.
@@ -23,6 +23,8 @@ type RawIssue = {
   labels: { name: string; color: string }[];
   assignees: { login: string }[];
   updatedAt: string;
+  // Open pull requests that will close this issue when merged.
+  closedByPullRequestsReferences?: { number: number }[];
 };
 
 function toCard(raw: RawIssue): RpcOutput<typeof createCardRpc> {
@@ -32,7 +34,11 @@ function toCard(raw: RawIssue): RpcOutput<typeof createCardRpc> {
     title: raw.title,
     body: raw.body ?? "",
     url: raw.url,
-    column: columnFor({ state: raw.state, labels: labelNames }),
+    column: columnFor({
+      state: raw.state,
+      labels: labelNames,
+      hasOpenPullRequest: (raw.closedByPullRequestsReferences?.length ?? 0) > 0,
+    }),
     labels: raw.labels
       .filter((label) => !KANBAN_LABELS.includes(label.name))
       .map(({ name, color }) => ({ name, color })),

@@ -24,7 +24,7 @@ This plugin needs:
 | ----------- | ------------------------------------ |
 | To do       | Open, without a kanban label         |
 | In progress | Open, labelled `kanban:in-progress`  |
-| In review   | Open, labelled `kanban:in-review`    |
+| In review   | Open, with an open pull request that closes it, or labelled `kanban:in-review` |
 | Done        | Closed as completed                  |
 
 Drag a card to another column to move it. On touch screens, long-press it first, and on a phone drop it on the column tabs. You can also use the buttons in the card view. Moving a card changes its label, or closes or reopens the issue. You can manage the same board from GitHub, the `gh` CLI, or an agent. The labels are created the first time you move a card.
@@ -43,13 +43,17 @@ Press the ▶ button on a card or list row, or open the card, choose an agent an
 2. Starts the agent there with the issue attached.
 3. Moves the card to **In progress**.
 
-By default the first message tells the agent to open a pull request that includes `Closes #N` and to move the card to **In review** with `gh issue edit`. When the pull request merges, GitHub closes the issue and the card moves to **Done**.
+By default the first message tells the agent to open a pull request that includes `Closes #N`. The card then moves on its own:
+
+- When the pull request opens, the card moves to **In review**, because GitHub links the pull request to the issue.
+- When the pull request merges, GitHub closes the issue and the card moves to **Done**.
 
 ## Limitations
 
 - The board shows up to 500 open issues and the 30 most recently closed ones.
 - Dragging moves a card between columns but not within one, because GitHub issues have no manual order.
 - Cards are sorted by last update.
+- While a card has an open pull request, it stays in **In review**. Dragging it to another column won't stick until the pull request is merged or closed.
 
 ## Development
 

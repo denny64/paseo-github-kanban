@@ -15,8 +15,7 @@ export function agentPrompt(card: Card, repo: string): string {
     "The issue is attached.",
     "",
     "When you're done:",
-    `1. Commit your work and open a pull request whose description includes "Closes #${card.number}".`,
-    `2. Move the card to review: gh issue edit ${card.number} --repo ${repo} --add-label kanban:in-review --remove-label kanban:in-progress`,
+    `Commit your work and open a pull request whose description includes "Closes #${card.number}".`,
   ].join("\n");
 }
 

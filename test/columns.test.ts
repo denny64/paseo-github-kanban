@@ -7,6 +7,8 @@ test("columnFor derives the column from state and labels", () => {
   assert.equal(columnFor({ state: "OPEN", labels: ["bug", "kanban:in-progress"] }), "in-progress");
   assert.equal(columnFor({ state: "OPEN", labels: ["kanban:in-progress", "kanban:in-review"] }), "in-review");
   assert.equal(columnFor({ state: "CLOSED", labels: ["kanban:in-progress"] }), "done");
+  assert.equal(columnFor({ state: "OPEN", labels: ["kanban:in-progress"], hasOpenPullRequest: true }), "in-review");
+  assert.equal(columnFor({ state: "CLOSED", labels: [], hasOpenPullRequest: true }), "done");
 });
 
 test("labelChanges swaps kanban labels and leaves others alone", () => {
