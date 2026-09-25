@@ -8,6 +8,7 @@ import { Pressable, Text, View } from "react-native";
 import { boardSettings, COLUMNS, type ColumnId } from "../shared/board";
 import { CardModal } from "./card-modal";
 import { Button, ColumnHeading, columnColor, errorMessage, LabelPill, type Theme } from "./controls";
+import { type CardDrag, DragOverlay, Draggable, useCardDrag } from "./drag";
 import { ListView } from "./list-view";
 import { NewCardModal } from "./new-card-modal";
 import { type BoardCard, cardRef, useBoards, useMoveCard, usePutCard } from "./use-boards";
@@ -43,6 +44,7 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
   const boards = useBoards(scope, showAll ? 300_000 : 60_000);
   const putCard = usePutCard();
   const move = useMoveCard((error) => toast.error(`Couldn't move the card: ${errorMessage(error)}`));
+  const drag = useCardDrag((card, column) => move.mutate({ card, column }));
 
   const [openCard, setOpenCard] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -124,11 +126,13 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
               title={column.title}
               count={byColumn.get(column.id)!.length}
               selected={compactColumn === column.id}
+              dropping={drag.hover === column.id && drag.dragging?.card.column !== column.id}
+              dropRef={drag.target(column.id)}
               onPress={() => setCompactColumn(column.id)}
             />
           ))}
         </ScrollView>
-        <Column theme={theme} cards={byColumn.get(compactColumn)!} showRepo={showAll} onOpen={setOpenCard} compact />
+        <Column theme={theme} cards={byColumn.get(compactColumn)!} showRepo={showAll} drag={drag} onOpen={setOpenCard} compact />
       </>
     );
   } else {
@@ -142,6 +146,7 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
             title={column.title}
             cards={byColumn.get(column.id)!}
             showRepo={showAll}
+            drag={drag}
             onOpen={setOpenCard}
           />
         ))}
@@ -154,7 +159,7 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
   const skipped = showAll && boards.repos.length > 0 ? boards.failed.map((f) => f.project.projectDisplayName) : [];
 
   return (
-    <View style={styles.screen}>
+    <View ref={drag.rootRef} style={styles.screen}>
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
@@ -250,6 +255,8 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
           }}
         />
       ) : null}
+
+      <DragOverlay drag={drag}>{(dragged) => <CardTile theme={theme} card={dragged} showRepo={showAll} lifted />}</DragOverlay>
     </View>
   );
 }
@@ -318,6 +325,7 @@ function Column({
   title,
   cards,
   showRepo,
+  drag,
   compact,
   onOpen,
 }: {
@@ -326,21 +334,46 @@ function Column({
   title?: string;
   cards: BoardCard[];
   showRepo: boolean;
+  drag: CardDrag;
   compact?: boolean;
   onOpen(key: string): void;
 }) {
+  const dropping = !!column && drag.hover === column && drag.dragging?.card.column !== column;
   return (
-    <View style={{ flex: 1, minWidth: 0, gap: 8 }}>
+    <View
+      ref={column ? drag.target(column) : undefined}
+      style={{
+        flex: 1,
+        minWidth: 0,
+        gap: 8,
+        // Always bordered (transparent at rest) so highlighting a drop target doesn't shift the layout.
+        padding: compact ? 0 : 6,
+        borderRadius: 12,
+        borderWidth: compact ? 0 : 1,
+        borderColor: dropping ? theme.colors.accent : "transparent",
+        backgroundColor: dropping ? theme.colors.surface1 : "transparent",
+      }}
+    >
       {column && title ? <ColumnHeading theme={theme} column={column} title={title} count={cards.length} /> : null}
       <ScrollView
         style={{ flex: 1 }}
+        scrollEnabled={!drag.active}
         contentContainerStyle={{ gap: 8, paddingHorizontal: compact ? 16 : 0, paddingBottom: 16 }}
       >
         {cards.length === 0 ? (
           <Text style={{ color: theme.colors.foregroundMuted, fontSize: 13, paddingVertical: 8 }}>No cards</Text>
         ) : (
           cards.map((card) => (
-            <CardTile key={card.key} theme={theme} card={card} showRepo={showRepo} onPress={() => onOpen(card.key)} />
+            <Draggable key={card.key} drag={drag} card={card}>
+              <CardTile
+                theme={theme}
+                card={card}
+                showRepo={showRepo}
+                onPress={() => !drag.justDropped() && onOpen(card.key)}
+                onLongPress={drag.arm ? () => drag.arm!(card.key) : undefined}
+                onPressOut={drag.disarm}
+              />
+            </Draggable>
           ))
         )}
       </ScrollView>
@@ -352,32 +385,43 @@ function CardTile({
   theme,
   card,
   showRepo,
+  lifted,
   onPress,
+  onLongPress,
+  onPressOut,
 }: {
   theme: Theme;
   card: BoardCard;
   showRepo: boolean;
-  onPress(): void;
+  // The copy that follows the pointer while dragging.
+  lifted?: boolean;
+  onPress?(): void;
+  onLongPress?(): void;
+  onPressOut?(): void;
 }) {
   const ref = cardRef(card, showRepo);
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${ref}: ${card.title}`}
+      accessibilityHint="Opens the card. Drag it to another column to move it."
       onPress={onPress}
+      onLongPress={onLongPress}
+      onPressOut={onPressOut}
+      delayLongPress={250}
       style={({ pressed }) => ({
         gap: 6,
         padding: 12,
         borderRadius: 10,
         borderWidth: 1,
-        borderColor: theme.colors.border,
-        backgroundColor: pressed ? theme.colors.surface2 : theme.colors.surface1,
+        borderColor: lifted ? theme.colors.accent : theme.colors.border,
+        backgroundColor: pressed || lifted ? theme.colors.surface2 : theme.colors.surface1,
       })}
     >
-      <Text style={{ color: theme.colors.foregroundMuted, fontSize: 12 }} numberOfLines={1}>
+      <Text style={{ color: theme.colors.foregroundMuted, fontSize: 12 }} numberOfLines={1} selectable={false}>
         {ref}
       </Text>
-      <Text style={{ color: theme.colors.foreground, fontSize: 14, lineHeight: 20 }} numberOfLines={3}>
+      <Text style={{ color: theme.colors.foreground, fontSize: 14, lineHeight: 20 }} numberOfLines={3} selectable={false}>
         {card.title}
       </Text>
       {card.labels.length > 0 || card.assignees.length > 0 ? (
@@ -402,6 +446,8 @@ function ColumnTab({
   title,
   count,
   selected,
+  dropping,
+  dropRef,
   onPress,
 }: {
   theme: Theme;
@@ -409,10 +455,13 @@ function ColumnTab({
   title: string;
   count: number;
   selected: boolean;
+  dropping: boolean;
+  dropRef(view: View | null): void;
   onPress(): void;
 }) {
   return (
     <Pressable
+      ref={dropRef}
       accessibilityRole="tab"
       accessibilityState={{ selected }}
       accessibilityLabel={`${title}, ${count} cards`}
@@ -424,7 +473,9 @@ function ColumnTab({
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 999,
-        backgroundColor: selected ? theme.colors.surface2 : "transparent",
+        borderWidth: 1,
+        borderColor: dropping ? theme.colors.accent : "transparent",
+        backgroundColor: selected || dropping ? theme.colors.surface2 : "transparent",
       }}
     >
       <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: columnColor(theme, column) }} />

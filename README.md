@@ -27,7 +27,7 @@ This plugin needs:
 | In review   | Open, labelled `kanban:in-review`    |
 | Done        | Closed as completed                  |
 
-Moving a card changes its label, or closes or reopens the issue. You can manage the same board from GitHub, the `gh` CLI, or an agent. The labels are created the first time you move a card.
+Drag a card to another column to move it. On touch screens, long-press it first, and on a phone drop it on the column tabs. You can also use the buttons in the card view. Moving a card changes its label, or closes or reopens the issue. You can manage the same board from GitHub, the `gh` CLI, or an agent. The labels are created the first time you move a card.
 
 **New card** creates an issue. The board refreshes every minute and when you press refresh.
 
@@ -48,8 +48,8 @@ By default the first message tells the agent to open a pull request that include
 ## Limits
 
 - The board shows up to 500 open issues and the 30 most recently closed ones.
-- Cards move between columns with the buttons in the card view. You can't drag them yet.
-- Cards are sorted by last update. GitHub issues have no manual order.
+- Dragging moves a card between columns but not within one, because GitHub issues have no manual order.
+- Cards are sorted by last update.
 
 ## Development
 
