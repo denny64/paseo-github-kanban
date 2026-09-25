@@ -29,6 +29,8 @@ This plugin needs:
 
 Drag a card to another column to move it. On touch screens, long-press it first, and on a phone drop it on the column tabs. You can also use the buttons in the card view. Moving a card changes its label, or closes or reopens the issue. You can manage the same board from GitHub, the `gh` CLI, or an agent. The labels are created the first time you move a card.
 
+In the card view, **Close issue** closes it as completed and the card moves to Done. **Archive** closes it as "not planned", which hides it from the board. Reopen the issue on GitHub to bring it back.
+
 **New card** creates an issue. The board refreshes every minute and when you press refresh.
 
 Choose **All projects** in the project picker to see every git project's issues on one board. Cards show GitHub's cross-repo reference, such as `api#12`. "New card" asks which project the issue belongs to. Projects that share a GitHub repo appear once. The combined board refreshes every 5 minutes instead of every minute.

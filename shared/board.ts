@@ -48,6 +48,14 @@ export const moveCardRpc = defineRpc({
   output: cardSchema,
 });
 
+// Close as "not planned". The board hides those, so the card disappears;
+// reopening the issue on GitHub brings it back.
+export const archiveCardRpc = defineRpc({
+  name: "card.archive",
+  input: z.object({ repo: z.string(), number: z.number().int().positive() }),
+  output: z.object({}),
+});
+
 export const boardSettings = defineSettings({
   id: "board",
   scope: "host",

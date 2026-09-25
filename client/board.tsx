@@ -11,7 +11,7 @@ import { Button, ColumnHeading, columnColor, errorMessage, IconButton, LabelPill
 import { type CardDrag, DragOverlay, Draggable, useCardDrag } from "./drag";
 import { ListView } from "./list-view";
 import { NewCardModal } from "./new-card-modal";
-import { type BoardCard, cardRef, useBoards, useMoveCard, usePutCard } from "./use-boards";
+import { type BoardCard, cardRef, useArchiveCard, useBoards, useMoveCard, usePutCard } from "./use-boards";
 
 type ViewMode = "board" | "list";
 
@@ -44,6 +44,7 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
   const boards = useBoards(scope, showAll ? 300_000 : 60_000);
   const putCard = usePutCard();
   const move = useMoveCard((error) => toast.error(`Couldn't move the card: ${errorMessage(error)}`));
+  const archive = useArchiveCard((error) => toast.error(`Couldn't archive the card: ${errorMessage(error)}`));
   const drag = useCardDrag((card, column) => move.mutate({ card, column }));
 
   const [openCard, setOpenCard] = useState<string | null>(null);
@@ -274,6 +275,11 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
           reference={cardRef(card, showAll)}
           onClose={() => setOpenCard(null)}
           onMove={(column) => move.mutate({ card, column })}
+          onArchive={() => {
+            setOpenCard(null);
+            archive.mutate(card);
+            toast.show(`Archived ${cardRef(card, showAll)}. Reopen it on GitHub to bring it back.`);
+          }}
           onAgentStarted={(agentId) => agentStarted(card, agentId)}
         />
       ) : null}

@@ -58,6 +58,7 @@ export function CardModal({
   reference,
   onClose,
   onMove,
+  onArchive,
   onAgentStarted,
 }: {
   theme: Theme;
@@ -65,6 +66,7 @@ export function CardModal({
   reference: string;
   onClose(): void;
   onMove(column: ColumnId): void;
+  onArchive(): void;
   onAgentStarted(agentId: string): void;
 }) {
   const heading = { color: theme.colors.foregroundMuted, fontSize: 12, fontWeight: "600" as const };
@@ -105,6 +107,19 @@ export function CardModal({
         {card.column !== "done" ? (
           <StartAgent theme={theme} card={card} onStarted={onAgentStarted} />
         ) : null}
+
+        <View style={{ gap: 8 }}>
+          <Text style={heading}>ISSUE</Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            {card.column !== "done" ? (
+              <Button theme={theme} label="Close issue" icon="CircleCheck" onPress={() => onMove("done")} />
+            ) : null}
+            <Button theme={theme} label="Archive" icon="Archive" onPress={onArchive} />
+          </View>
+          <Text style={{ color: theme.colors.foregroundMuted, fontSize: 12 }}>
+            Archive closes the issue as not planned and hides it. Reopen it on GitHub to bring it back.
+          </Text>
+        </View>
       </Modal.Content>
     </Modal>
   );

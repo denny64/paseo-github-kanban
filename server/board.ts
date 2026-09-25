@@ -1,5 +1,6 @@
 import type { RpcInput, RpcOutput } from "@getpaseo/plugin";
 import {
+  archiveCardRpc,
   createCardRpc,
   loadBoardRpc,
   moveCardRpc,
@@ -153,4 +154,16 @@ export async function moveCard(
     await gh(["issue", "view", String(number), "--repo", repo, "--json", ISSUE_FIELDS]),
   ) as RawIssue;
   return toCard(issue);
+}
+
+export async function archiveCard(
+  { repo, number }: RpcInput<typeof archiveCardRpc>,
+): Promise<RpcOutput<typeof archiveCardRpc>> {
+  const { state } = JSON.parse(
+    await gh(["issue", "view", String(number), "--repo", repo, "--json", "state"]),
+  ) as Pick<RawIssue, "state">;
+  // A closed issue keeps its close reason, so reopen it to close it again as not planned.
+  if (state.toUpperCase() === "CLOSED") await gh(["issue", "reopen", String(number), "--repo", repo]);
+  await gh(["issue", "close", String(number), "--repo", repo, "--reason", "not planned"]);
+  return {};
 }

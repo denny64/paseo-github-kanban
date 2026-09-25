@@ -1,6 +1,6 @@
 {
   "name": "paseo-github-kanban",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Kanban board for Paseo backed by GitHub issues, with one-click agents per card.",
   "keywords": [
     "paseo",

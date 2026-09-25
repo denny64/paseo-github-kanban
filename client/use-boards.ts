@@ -1,7 +1,7 @@
 import type { PaseoProject } from "./paseo-types";
 import { useRpc } from "@getpaseo/plugin/client";
 import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
-import { type Card, type ColumnId, loadBoardRpc, moveCardRpc, type Repo } from "../shared/board";
+import { archiveCardRpc, type Card, type ColumnId, loadBoardRpc, moveCardRpc, type Repo } from "../shared/board";
 
 type Board = { repo: Repo; cards: Card[] };
 
@@ -84,5 +84,26 @@ export function useMoveCard(onError: (error: unknown) => void) {
       onError(error);
     },
     onSuccess: (updated, { card }) => putCard(card.project, updated),
+  });
+}
+
+export function useArchiveCard(onError: (error: unknown) => void) {
+  const queryClient = useQueryClient();
+  const archiveCard = useRpc(archiveCardRpc);
+  return useMutation({
+    mutationFn: (card: BoardCard) => archiveCard({ repo: card.repo.nameWithOwner, number: card.number }),
+    onMutate: async (card) => {
+      const key = boardKey(card.project);
+      await queryClient.cancelQueries({ queryKey: key });
+      const previous = queryClient.getQueryData<Board>(key);
+      queryClient.setQueryData<Board>(key, (board) =>
+        board && { ...board, cards: board.cards.filter((c) => c.number !== card.number) },
+      );
+      return { previous };
+    },
+    onError: (error, card, context) => {
+      queryClient.setQueryData(boardKey(card.project), context?.previous);
+      onError(error);
+    },
   });
 }
