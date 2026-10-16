@@ -8,6 +8,10 @@ type Board = { repo: Repo; cards: Card[] };
 // A card plus where it lives, so one view can mix repos.
 export type BoardCard = Card & { key: string; repo: Repo; project: PaseoProject };
 
+export function boardCard(card: Card, repo: Repo, project: PaseoProject): BoardCard {
+  return { ...card, key: `${repo.nameWithOwner}#${card.number}`, repo, project };
+}
+
 const boardKey = (project: PaseoProject) => ["board", project.projectRootPath];
 
 // GitHub's own cross-repo reference ("api#12") when repos are mixed.
@@ -37,7 +41,7 @@ export function useBoards(projects: readonly PaseoProject[], refetchInterval: nu
     if (!query.data || repos.some((r) => r.repo.nameWithOwner === query.data.repo.nameWithOwner)) return;
     const { repo } = query.data;
     repos.push({ project, repo });
-    for (const card of query.data.cards) cards.push({ ...card, key: `${repo.nameWithOwner}#${card.number}`, repo, project });
+    for (const card of query.data.cards) cards.push(boardCard(card, repo, project));
   });
   cards.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 

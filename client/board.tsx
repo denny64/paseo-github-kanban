@@ -282,6 +282,7 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
           defaultProjectId={project?.projectId}
           onOpenChange={setCreating}
           onCreated={putCard}
+          onAgentStarted={agentStarted}
         />
       ) : null}
 

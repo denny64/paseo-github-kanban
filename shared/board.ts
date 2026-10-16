@@ -67,6 +67,8 @@ export const boardSettings = defineSettings({
     allProjects: z.boolean().default(false),
     // Last agent used from "Start agent": "profile:<id>" or "model:<provider>/<model>".
     agent: z.string().nullable().default(null),
+    // Last thinking level picked for a model that offers them.
+    thinking: z.string().nullable().default(null),
     view: z.enum(["board", "list"]).default("board"),
   }),
 });
