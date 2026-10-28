@@ -1,4 +1,3 @@
-import type { PaseoProject } from "./paseo-types";
 import type { PluginSurfaceProps } from "@getpaseo/plugin/client";
 import { usePaseo, useSettings } from "@getpaseo/plugin/client";
 import { Icon, Modal, ScrollView, useToast } from "@getpaseo/plugin/client/react-native";
@@ -7,11 +6,11 @@ import { useEffect, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { boardSettings, COLUMNS, type ColumnId } from "../shared/board";
 import { CardModal, StartAgentModal } from "./card-modal";
-import { Button, ColumnHeading, columnColor, errorMessage, IconButton, LabelPill, TextAction, type Theme } from "./controls";
+import { Button, ColumnHeading, columnColor, errorMessage, IconButton, LabelPill, RepoTag, TextAction, type Theme } from "./controls";
 import { type CardDrag, DragOverlay, Draggable, useCardDrag } from "./drag";
 import { ListView } from "./list-view";
 import { NewCardModal } from "./new-card-modal";
-import { type BoardCard, cardRef, useArchiveCard, useBoards, useMoveCard, usePutCard } from "./use-boards";
+import { type BoardCard, cardRef, repoName, useArchiveCard, useBoards, useMoveCard, usePutCard } from "./use-boards";
 
 type ViewMode = "board" | "list";
 
@@ -32,16 +31,10 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
   );
 
   const values = settings.status === "ready" ? settings.values : null;
-  const showAll = !!values?.allProjects;
-  const project =
-    settings.status === "loading"
-      ? undefined
-      : (projects.data?.find((p) => p.projectId === values?.projectId) ?? projects.data?.[0]);
-  const scope = settings.status === "loading" ? [] : showAll ? (projects.data ?? []) : project ? [project] : [];
 
-  // ponytail: one gh round trip per repo per refresh, so the all-projects view
-  // polls every 5 min instead of every minute; move to a single GraphQL query if that bites.
-  const boards = useBoards(scope, showAll ? 300_000 : 60_000);
+  // ponytail: one gh round trip per repo per refresh, so the board polls every
+  // 5 min instead of every minute; move to a single GraphQL query if that bites.
+  const boards = useBoards(projects.data ?? [], 300_000);
   const putCard = usePutCard();
   const move = useMoveCard((error) => toast.error(`Couldn't move the card: ${errorMessage(error)}`));
   const archive = useArchiveCard((error) => toast.error(`Couldn't archive the card: ${errorMessage(error)}`));
@@ -51,7 +44,6 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
   const [startFor, setStartFor] = useState<string | null>(null);
   const [clearingDone, setClearingDone] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [pickingProject, setPickingProject] = useState(false);
   const [compactColumn, setCompactColumn] = useState<ColumnId>("todo");
   // Local override so the toggle flips instantly; the saved setting catches up.
   const [viewOverride, setViewOverride] = useState<ViewMode | null>(null);
@@ -75,9 +67,8 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
         paddingTop: layout.compact ? 12 : 20,
         paddingBottom: 12,
       },
-      projectButton: { flexShrink: 1, gap: 2 },
-      projectRow: { flexDirection: "row" as const, alignItems: "center" as const, gap: 6 },
-      projectName: { color: theme.colors.foreground, fontSize: layout.compact ? 18 : 20, fontWeight: "600" as const },
+      titleBlock: { flexShrink: 1, gap: 2 },
+      title: { color: theme.colors.foreground, fontSize: layout.compact ? 18 : 20, fontWeight: "600" as const },
       muted: { color: theme.colors.foregroundMuted, fontSize: 12 },
       spacer: { flex: 1 },
       message: { padding: layout.compact ? 16 : 24, gap: 12, alignItems: "flex-start" as const },
@@ -92,10 +83,6 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
 
   const saveSettings = (patch: Partial<NonNullable<typeof values>>) => {
     if (settings.status === "ready") void settings.save({ ...settings.values, ...patch }, settings.revision);
-  };
-  const selectProject = (next: PaseoProject | "all") => {
-    setPickingProject(false);
-    saveSettings(next === "all" ? { allProjects: true } : { allProjects: false, projectId: next.projectId });
   };
   const selectView = (next: ViewMode) => {
     setViewOverride(next);
@@ -117,21 +104,20 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
   if (projects.isError) {
     body = <Message styles={styles} text={errorMessage(projects.error)} />;
   } else if (projects.data && projects.data.length === 0) {
-    body = <Message styles={styles} text="Add a git project in Paseo to get a board for its GitHub issues." />;
+    body = <Message styles={styles} text="Add a git project in Paseo to see its GitHub issues here." />;
   } else if (boards.repos.length === 0 && boards.failed.length > 0 && !boards.fetching) {
     body = (
       <Message styles={styles} text={errorMessage(boards.failed[0].error)}>
         <Button theme={theme} label="Try again" icon="RotateCw" onPress={() => boards.refetch()} />
       </Message>
     );
-  } else if (!boards.ready || scope.length === 0) {
+  } else if (!boards.ready || !projects.data) {
     body = <Message styles={styles} text="Loading issues…" />;
   } else if (view === "list") {
     body = (
       <ListView
         theme={theme}
         compact={layout.compact}
-        showRepo={showAll}
         byColumn={byColumn}
         onOpen={setOpenCard}
         onStartAgent={setStartFor}
@@ -160,7 +146,6 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
         <Column
           theme={theme}
           cards={byColumn.get(compactColumn)!}
-          showRepo={showAll}
           drag={drag}
           onOpen={setOpenCard}
           onStartAgent={setStartFor}
@@ -179,7 +164,6 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
             column={column.id}
             title={column.title}
             cards={byColumn.get(column.id)!}
-            showRepo={showAll}
             drag={drag}
             onOpen={setOpenCard}
             onStartAgent={setStartFor}
@@ -199,39 +183,30 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
     move.mutate({ card: started, column: "in-progress" });
     navigation?.openAgent({ agentId });
   };
-  // Some repos loaded and some didn't: say which, without hiding the rest.
-  const skipped = showAll && boards.repos.length > 0 ? boards.failed.map((f) => f.project.projectDisplayName) : [];
+  // Some repos loaded and some didn't: say which and why, without hiding the rest.
+  const skipped = boards.repos.length > 0 ? boards.failed : [];
 
   return (
     <View ref={drag.rootRef} style={styles.screen}>
       <View style={styles.header}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Choose project"
-          onPress={() => setPickingProject(true)}
-          style={styles.projectButton}
-        >
-          <View style={styles.projectRow}>
-            <Text style={styles.projectName} numberOfLines={1}>
-              {showAll ? "All projects" : (project?.projectDisplayName ?? "Kanban")}
-            </Text>
-            <Icon name="ChevronDown" size={16} color={theme.colors.foregroundMuted} />
-          </View>
+        <View style={styles.titleBlock}>
+          <Text style={styles.title} numberOfLines={1}>
+            GitHub issues
+          </Text>
           {boards.repos.length > 0 ? (
             <Text style={styles.muted}>
-              {showAll
-                ? `${boards.repos.length} ${boards.repos.length === 1 ? "repo" : "repos"} · GitHub issues`
-                : `${boards.repos[0].repo.nameWithOwner} · GitHub issues`}
+              {boards.cards.length} {boards.cards.length === 1 ? "issue" : "issues"} · {boards.repos.length}{" "}
+              {boards.repos.length === 1 ? "repo" : "repos"}
             </Text>
           ) : null}
-        </Pressable>
+        </View>
         <View style={styles.spacer} />
         <ViewToggle theme={theme} view={view} onChange={selectView} />
         <Button
           theme={theme}
           icon="RotateCw"
           accessibilityLabel="Refresh"
-          disabled={scope.length === 0 || boards.fetching}
+          disabled={!projects.data?.length || boards.fetching}
           onPress={() => boards.refetch()}
         />
         <Button
@@ -246,40 +221,18 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
 
       {skipped.length > 0 ? (
         <Text style={styles.notice} numberOfLines={2}>
-          Couldn't load {skipped.join(", ")}. Open {skipped.length === 1 ? "it" : "one"} on its own to see why.
+          Couldn't load {skipped.map((f) => `${f.project.projectDisplayName} (${errorMessage(f.error)})`).join(", ")}.
         </Text>
       ) : null}
 
       {body}
 
-      <Modal title="Choose project" open={pickingProject} onOpenChange={setPickingProject}>
-        <Modal.Content>
-          <ProjectRow
-            theme={theme}
-            title="All projects"
-            subtitle="Every git project on this host, on one board"
-            selected={showAll}
-            onPress={() => selectProject("all")}
-          />
-          {(projects.data ?? []).map((p) => (
-            <ProjectRow
-              key={p.projectId}
-              theme={theme}
-              title={p.projectDisplayName}
-              subtitle={p.projectRootPath}
-              selected={!showAll && p.projectId === project?.projectId}
-              onPress={() => selectProject(p)}
-            />
-          ))}
-        </Modal.Content>
-      </Modal>
 
       {boards.repos.length > 0 ? (
         <NewCardModal
           theme={theme}
           open={creating}
           targets={boards.repos}
-          defaultProjectId={project?.projectId}
           onOpenChange={setCreating}
           onCreated={putCard}
           onAgentStarted={agentStarted}
@@ -290,13 +243,13 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
         <CardModal
           theme={theme}
           card={card}
-          reference={cardRef(card, showAll)}
+          reference={cardRef(card)}
           onClose={() => setOpenCard(null)}
           onMove={(column) => move.mutate({ card, column })}
           onArchive={() => {
             setOpenCard(null);
             archive.mutate(card);
-            toast.show(`Archived ${cardRef(card, showAll)}. Reopen it on GitHub to bring it back.`);
+            toast.show(`Archived ${cardRef(card)}. Reopen it on GitHub to bring it back.`);
           }}
           onAgentStarted={(agentId) => agentStarted(card, agentId)}
         />
@@ -319,13 +272,13 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
         <StartAgentModal
           theme={theme}
           card={startCard}
-          reference={cardRef(startCard, showAll)}
+          reference={cardRef(startCard)}
           onClose={() => setStartFor(null)}
           onStarted={(agentId) => agentStarted(startCard, agentId)}
         />
       ) : null}
 
-      <DragOverlay drag={drag}>{(dragged) => <CardTile theme={theme} card={dragged} showRepo={showAll} lifted />}</DragOverlay>
+      <DragOverlay drag={drag}>{(dragged) => <CardTile theme={theme} card={dragged} lifted />}</DragOverlay>
     </View>
   );
 }
@@ -393,7 +346,6 @@ function Column({
   column,
   title,
   cards,
-  showRepo,
   drag,
   compact,
   onOpen,
@@ -405,7 +357,6 @@ function Column({
   column?: ColumnId;
   title?: string;
   cards: BoardCard[];
-  showRepo: boolean;
   drag: CardDrag;
   compact?: boolean;
   onOpen(key: string): void;
@@ -455,7 +406,6 @@ function Column({
               <CardTile
                 theme={theme}
                 card={card}
-                showRepo={showRepo}
                 onPress={() => !drag.justDropped() && onOpen(card.key)}
                 onStartAgent={() => onStartAgent(card.key)}
                 onArchive={() => onArchive(card.key)}
@@ -473,7 +423,6 @@ function Column({
 function CardTile({
   theme,
   card,
-  showRepo,
   lifted,
   onPress,
   onLongPress,
@@ -483,7 +432,6 @@ function CardTile({
 }: {
   theme: Theme;
   card: BoardCard;
-  showRepo: boolean;
   // The copy that follows the pointer while dragging.
   lifted?: boolean;
   onPress?(): void;
@@ -492,7 +440,7 @@ function CardTile({
   onStartAgent?(): void;
   onArchive?(): void;
 }) {
-  const ref = cardRef(card, showRepo);
+  const ref = cardRef(card);
   return (
     <Pressable
       accessibilityRole="button"
@@ -512,9 +460,11 @@ function CardTile({
       })}
     >
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-        <Text style={{ flex: 1, color: theme.colors.foregroundMuted, fontSize: 12 }} numberOfLines={1} selectable={false}>
-          {ref}
+        <Text style={{ color: theme.colors.foregroundMuted, fontSize: 12 }} numberOfLines={1} selectable={false}>
+          #{card.number}
         </Text>
+        <RepoTag theme={theme} name={repoName(card)} />
+        <View style={{ flex: 1 }} />
         {onStartAgent && card.column !== "done" ? (
           <IconButton theme={theme} icon="Play" accessibilityLabel={`Start an agent on ${ref}`} onPress={onStartAgent} />
         ) : null}
@@ -583,45 +533,6 @@ function ColumnTab({
       <Text style={{ color: selected ? theme.colors.foreground : theme.colors.foregroundMuted, fontSize: 13 }}>
         {title} {count}
       </Text>
-    </Pressable>
-  );
-}
-
-function ProjectRow({
-  theme,
-  title,
-  subtitle,
-  selected,
-  onPress,
-}: {
-  theme: Theme;
-  title: string;
-  subtitle: string;
-  selected: boolean;
-  onPress(): void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected }}
-      accessibilityLabel={title}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 12,
-        padding: 12,
-        borderRadius: 8,
-        backgroundColor: pressed || selected ? theme.colors.surface2 : "transparent",
-      })}
-    >
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text style={{ color: theme.colors.foreground, fontSize: 14 }}>{title}</Text>
-        <Text style={{ color: theme.colors.foregroundMuted, fontSize: 12 }} numberOfLines={1}>
-          {subtitle}
-        </Text>
-      </View>
-      {selected ? <Icon name="Check" size={16} color={theme.colors.accent} /> : null}
     </Pressable>
   );
 }

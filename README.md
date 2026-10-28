@@ -1,6 +1,6 @@
 # GitHub Kanban for Paseo
 
-A kanban board for [Paseo](https://paseo.sh) that stores everything in GitHub issues on the project's own repository. It has no database, no extra service and no token to set up.
+A kanban board for [Paseo](https://paseo.sh) that stores everything in GitHub issues. Every git project's issues are on one board, and each card is tagged with its repo. It has no database, no extra service and no token to set up.
 
 Each card is an issue. Pick a card, choose an agent, and Paseo starts it in a new worktree with the issue attached.
 
@@ -10,7 +10,7 @@ Each card is an issue. Pick a card, choose an agent, and Paseo starts it in a ne
 paseo plugin add denny64/paseo-github-kanban
 ```
 
-Open **Kanban** in the Paseo sidebar and choose a project.
+Open **Kanban** in the Paseo sidebar.
 
 This plugin needs:
 
@@ -33,11 +33,9 @@ In the card view, **Close issue** closes it as completed and the card moves to D
 
 To clear out Done, use the archive button on a done card or **Clear** in the Done column's heading.
 
-**New card** creates an issue. The board refreshes every minute and when you press refresh.
+**New card** creates an issue and asks which project it belongs to. Projects that share a GitHub repo appear once. The board refreshes every 5 minutes and when you press refresh.
 
-Choose **All projects** in the project picker to see every git project's issues on one board. Cards show GitHub's cross-repo reference, such as `api#12`. "New card" asks which project the issue belongs to. Projects that share a GitHub repo appear once. The combined board refreshes every 5 minutes instead of every minute.
-
-The toggle in the header switches between the board and a **list view**. The list shows every card on one page, grouped by column, with its labels, assignee and last update. Paseo remembers which view you chose.
+The toggle in the header switches between the board and a **list view**. The list shows every card on one page, grouped by column, with its repo, labels, assignee and last update. Paseo remembers which view you chose.
 
 ## Starting an agent
 

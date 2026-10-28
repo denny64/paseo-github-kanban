@@ -93,6 +93,39 @@ export function LabelPill({ theme, name, color }: { theme: Theme; name: string; 
   );
 }
 
+// Muted hues that read on light and dark themes; a repo always gets the same one.
+const REPO_COLORS = ["#8b5cf6", "#3b82f6", "#06b6d4", "#10b981", "#84cc16", "#f59e0b", "#f97316", "#ec4899"];
+
+export function repoColor(name: string): string {
+  let hash = 0;
+  for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) | 0;
+  return REPO_COLORS[Math.abs(hash) % REPO_COLORS.length];
+}
+
+// A card's repo: squarer than a label pill so the two read apart.
+export function RepoTag({ theme, name }: { theme: Theme; name: string }) {
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        alignItems: "center",
+        flexShrink: 1,
+        gap: 5,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
+        borderWidth: 1,
+        borderColor: theme.colors.border,
+      }}
+    >
+      <View style={{ width: 7, height: 7, borderRadius: 2, backgroundColor: repoColor(name) }} />
+      <Text style={{ flexShrink: 1, color: theme.colors.foreground, fontSize: 11, fontWeight: "500" }} numberOfLines={1}>
+        {name}
+      </Text>
+    </View>
+  );
+}
+
 export function ColumnHeading({
   theme,
   column,

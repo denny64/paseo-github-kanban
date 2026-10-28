@@ -6,9 +6,9 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Text, View } from "react-native";
 import { boardSettings, type Card, COLUMNS, type ColumnId } from "../shared/board";
-import { Button, errorMessage, inputStyle, LabelPill, type Theme } from "./controls";
+import { Button, errorMessage, inputStyle, LabelPill, RepoTag, type Theme } from "./controls";
 import { type AgentImage, ImageAttachments, useImages } from "./images";
-import type { BoardCard } from "./use-boards";
+import { type BoardCard, repoName } from "./use-boards";
 
 export function agentPrompt(card: Card, repo: string): string {
   return [
@@ -191,13 +191,12 @@ export function CardModal({
         <Text style={{ color: theme.colors.foreground, fontSize: 18, fontWeight: "600", lineHeight: 24 }} selectable>
           {card.title}
         </Text>
-        {card.labels.length > 0 ? (
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-            {card.labels.map((label) => (
-              <LabelPill key={label.name} theme={theme} name={label.name} color={label.color} />
-            ))}
-          </View>
-        ) : null}
+        <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+          <RepoTag theme={theme} name={repoName(card)} />
+          {card.labels.map((label) => (
+            <LabelPill key={label.name} theme={theme} name={label.name} color={label.color} />
+          ))}
+        </View>
         <Text style={{ color: theme.colors.foregroundMuted, fontSize: 14, lineHeight: 20 }} selectable>
           {card.body.trim() || "No description."}
         </Text>

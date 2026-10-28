@@ -14,9 +14,12 @@ export function boardCard(card: Card, repo: Repo, project: PaseoProject): BoardC
 
 const boardKey = (project: PaseoProject) => ["board", project.projectRootPath];
 
-// GitHub's own cross-repo reference ("api#12") when repos are mixed.
-export function cardRef(card: BoardCard, showRepo: boolean): string {
-  return showRepo ? `${card.repo.nameWithOwner.split("/")[1]}#${card.number}` : `#${card.number}`;
+export const repoName = (card: BoardCard) => card.repo.nameWithOwner.split("/")[1];
+
+// GitHub's own cross-repo reference ("api#12"), for titles and messages. Tiles
+// and rows show "#12" next to a repo tag instead.
+export function cardRef(card: BoardCard): string {
+  return `${repoName(card)}#${card.number}`;
 }
 
 // One query per project, shared with the single-project view's cache.
