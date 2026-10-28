@@ -50,6 +50,16 @@ By default the first message tells the agent to open a pull request that include
 - When the pull request opens, the card moves to **In review**, because GitHub links the pull request to the issue.
 - When the pull request merges, GitHub closes the issue and the card moves to **Done**.
 
+## Scheduling an agent
+
+To start an agent later, for example overnight, choose a time under **When** instead of **Now**, then press **Schedule**. The choices are in 1 or 3 hours, or the next 11 pm, 2 am or 9 am. The card shows a clock with the start time.
+
+The Paseo daemon starts the agent at that time, even if the app is closed, using the agent, thinking level and first message you chose. Then it moves the card to **In progress**. Images aren't kept for scheduled starts.
+
+Open the card to reschedule or cancel. Starting the agent by hand also cancels the schedule. If a scheduled start fails, the card shows why until you dismiss it.
+
+After the daemon restarts, a due start waits until the board loads or any agent does something, so it can run a few minutes late.
+
 ## Limitations
 
 - The board shows up to 500 open issues and the 30 most recently closed ones.

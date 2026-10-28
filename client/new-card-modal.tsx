@@ -6,7 +6,8 @@ import { useState } from "react";
 import { Text, View } from "react-native";
 import { SettingsCard, SettingsSelect } from "@getpaseo/plugin/client/ui";
 import { type Card, createCardRpc, type Repo } from "../shared/board";
-import { AgentPicker, agentPrompt, startAgentOn, useAgentPicker } from "./card-modal";
+import { startAgent } from "../shared/start-agent";
+import { AgentPicker, agentPrompt, useAgentPicker } from "./card-modal";
 import { Button, errorMessage, inputStyle, type Theme } from "./controls";
 import { ImageAttachments, useImages } from "./images";
 import { type BoardCard, boardCard } from "./use-boards";
@@ -49,7 +50,13 @@ export function NewCardModal({
       if (withAgent && picker.config) {
         // The issue exists either way, so a failed start only costs the agent.
         try {
-          const agentId = await startAgentOn(paseo, card, picker.config, agentPrompt(card, repo), images.images);
+          const agentId = await startAgent(paseo, {
+            card,
+            project: card.project,
+            config: picker.config,
+            prompt: agentPrompt(card, repo),
+            images: images.images,
+          });
           picker.remember();
           onAgentStarted(card, agentId);
         } catch (error) {

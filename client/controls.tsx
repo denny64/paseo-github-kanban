@@ -2,7 +2,8 @@ import type { PluginSurfaceProps } from "@getpaseo/plugin/client";
 import type { ReactNode } from "react";
 import { Icon } from "@getpaseo/plugin/client/react-native";
 import { Pressable, Text, View } from "react-native";
-import type { ColumnId } from "../shared/board";
+import type { ColumnId, Schedule } from "../shared/board";
+import { runAtLabel } from "../shared/time";
 
 export type Theme = PluginSurfaceProps["theme"];
 
@@ -121,6 +122,22 @@ export function RepoTag({ theme, name }: { theme: Theme; name: string }) {
       <View style={{ width: 7, height: 7, borderRadius: 2, backgroundColor: repoColor(name) }} />
       <Text style={{ flexShrink: 1, color: theme.colors.foreground, fontSize: 11, fontWeight: "500" }} numberOfLines={1}>
         {name}
+      </Text>
+    </View>
+  );
+}
+
+// A card's scheduled start, or why it failed. `long` spells it out for the card view.
+export function ScheduleBadge({ theme, schedule, long }: { theme: Theme; schedule: Schedule; long?: boolean }) {
+  const color = schedule.error ? theme.colors.statusDanger : theme.colors.foregroundMuted;
+  const text = schedule.error
+    ? long ? `Scheduled start failed: ${schedule.error}` : "Start failed"
+    : long ? `Starts at ${runAtLabel(schedule.runAt)}` : runAtLabel(schedule.runAt);
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flexShrink: 1 }}>
+      <Icon name={schedule.error ? "TriangleAlert" : "Clock"} size={12} color={color} />
+      <Text style={{ flexShrink: 1, color, fontSize: 12 }} numberOfLines={long ? 3 : 1}>
+        {text}
       </Text>
     </View>
   );

@@ -56,6 +56,43 @@ export const archiveCardRpc = defineRpc({
   output: z.object({}),
 });
 
+// An agent start waiting for its time. The daemon runs it, so it happens with
+// Paseo closed. `error` is set when the start failed; the card shows it.
+export const scheduleSchema = z.object({
+  id: z.string(),
+  repo: z.string(),
+  number: z.number().int().positive(),
+  runAt: z.string(),
+  error: z.string().nullable(),
+});
+export type Schedule = z.infer<typeof scheduleSchema>;
+
+export const createScheduleRpc = defineRpc({
+  name: "schedule.create",
+  input: z.object({
+    repo: z.string(),
+    card: cardSchema,
+    runAt: z.string(),
+    // The Paseo project the worktree branches from.
+    project: z.object({ projectId: z.string(), projectRootPath: z.string() }),
+    config: z.looseObject({ provider: z.string() }),
+    prompt: z.string(),
+  }),
+  output: scheduleSchema,
+});
+
+export const listSchedulesRpc = defineRpc({
+  name: "schedule.list",
+  input: z.object({}),
+  output: z.object({ schedules: z.array(scheduleSchema) }),
+});
+
+export const cancelScheduleRpc = defineRpc({
+  name: "schedule.cancel",
+  input: z.object({ id: z.string() }),
+  output: z.object({}),
+});
+
 export const boardSettings = defineSettings({
   id: "board",
   scope: "host",

@@ -4,13 +4,13 @@ import { Icon, Modal, ScrollView, useToast } from "@getpaseo/plugin/client/react
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, Text, View } from "react-native";
-import { boardSettings, COLUMNS, type ColumnId } from "../shared/board";
+import { boardSettings, COLUMNS, type ColumnId, type Schedule } from "../shared/board";
 import { CardModal, StartAgentModal } from "./card-modal";
-import { Button, ColumnHeading, columnColor, errorMessage, IconButton, LabelPill, RepoTag, TextAction, type Theme } from "./controls";
+import { Button, ColumnHeading, columnColor, errorMessage, IconButton, LabelPill, RepoTag, ScheduleBadge, TextAction, type Theme } from "./controls";
 import { type CardDrag, DragOverlay, Draggable, useCardDrag } from "./drag";
 import { ListView } from "./list-view";
 import { NewCardModal } from "./new-card-modal";
-import { type BoardCard, cardRef, repoName, useArchiveCard, useBoards, useMoveCard, usePutCard } from "./use-boards";
+import { type BoardCard, cardRef, repoName, useArchiveCard, useBoards, useMoveCard, usePutCard, useSchedules } from "./use-boards";
 
 type ViewMode = "board" | "list";
 
@@ -35,6 +35,7 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
   // ponytail: one gh round trip per repo per refresh, so the board polls every
   // 5 min instead of every minute; move to a single GraphQL query if that bites.
   const boards = useBoards(projects.data ?? [], 300_000);
+  const schedules = useSchedules();
   const putCard = usePutCard();
   const move = useMoveCard((error) => toast.error(`Couldn't move the card: ${errorMessage(error)}`));
   const archive = useArchiveCard((error) => toast.error(`Couldn't archive the card: ${errorMessage(error)}`));
@@ -119,6 +120,7 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
         theme={theme}
         compact={layout.compact}
         byColumn={byColumn}
+        schedules={schedules}
         onOpen={setOpenCard}
         onStartAgent={setStartFor}
         onArchive={archiveKey}
@@ -146,6 +148,7 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
         <Column
           theme={theme}
           cards={byColumn.get(compactColumn)!}
+          schedules={schedules}
           drag={drag}
           onOpen={setOpenCard}
           onStartAgent={setStartFor}
@@ -164,6 +167,7 @@ export function BoardSurface({ theme, layout, navigation }: PluginSurfaceProps) 
             column={column.id}
             title={column.title}
             cards={byColumn.get(column.id)!}
+            schedules={schedules}
             drag={drag}
             onOpen={setOpenCard}
             onStartAgent={setStartFor}
@@ -346,6 +350,7 @@ function Column({
   column,
   title,
   cards,
+  schedules,
   drag,
   compact,
   onOpen,
@@ -357,6 +362,7 @@ function Column({
   column?: ColumnId;
   title?: string;
   cards: BoardCard[];
+  schedules: Map<string, Schedule>;
   drag: CardDrag;
   compact?: boolean;
   onOpen(key: string): void;
@@ -406,6 +412,7 @@ function Column({
               <CardTile
                 theme={theme}
                 card={card}
+                schedule={schedules.get(card.key)}
                 onPress={() => !drag.justDropped() && onOpen(card.key)}
                 onStartAgent={() => onStartAgent(card.key)}
                 onArchive={() => onArchive(card.key)}
@@ -423,6 +430,7 @@ function Column({
 function CardTile({
   theme,
   card,
+  schedule,
   lifted,
   onPress,
   onLongPress,
@@ -432,6 +440,7 @@ function CardTile({
 }: {
   theme: Theme;
   card: BoardCard;
+  schedule?: Schedule;
   // The copy that follows the pointer while dragging.
   lifted?: boolean;
   onPress?(): void;
@@ -465,6 +474,7 @@ function CardTile({
         </Text>
         <RepoTag theme={theme} name={repoName(card)} />
         <View style={{ flex: 1 }} />
+        {schedule ? <ScheduleBadge theme={theme} schedule={schedule} /> : null}
         {onStartAgent && card.column !== "done" ? (
           <IconButton theme={theme} icon="Play" accessibilityLabel={`Start an agent on ${ref}`} onPress={onStartAgent} />
         ) : null}

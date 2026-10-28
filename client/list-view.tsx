@@ -1,8 +1,8 @@
 import { ScrollView } from "@getpaseo/plugin/client/react-native";
 import { Pressable, Text, View } from "react-native";
-import { COLUMNS, type ColumnId } from "../shared/board";
+import { COLUMNS, type ColumnId, type Schedule } from "../shared/board";
 import { timeAgo } from "../shared/time";
-import { ColumnHeading, IconButton, LabelPill, RepoTag, TextAction, type Theme } from "./controls";
+import { ColumnHeading, IconButton, LabelPill, RepoTag, ScheduleBadge, TextAction, type Theme } from "./controls";
 import { type BoardCard, cardRef, repoName } from "./use-boards";
 
 // Every card on one scrolling page, grouped by column in board order.
@@ -10,6 +10,7 @@ export function ListView({
   theme,
   compact,
   byColumn,
+  schedules,
   onOpen,
   onStartAgent,
   onArchive,
@@ -18,6 +19,7 @@ export function ListView({
   theme: Theme;
   compact: boolean;
   byColumn: Map<ColumnId, BoardCard[]>;
+  schedules: Map<string, Schedule>;
   onOpen(key: string): void;
   onStartAgent(key: string): void;
   onArchive(key: string): void;
@@ -61,6 +63,7 @@ export function ListView({
                     theme={theme}
                     card={card}
                     compact={compact}
+                    schedule={schedules.get(card.key)}
                     first={index === 0}
                     onPress={() => onOpen(card.key)}
                     onStartAgent={() => onStartAgent(card.key)}
@@ -80,6 +83,7 @@ function ListRow({
   theme,
   card,
   compact,
+  schedule,
   first,
   onPress,
   onStartAgent,
@@ -88,6 +92,7 @@ function ListRow({
   theme: Theme;
   card: BoardCard;
   compact: boolean;
+  schedule?: Schedule;
   first: boolean;
   onPress(): void;
   onStartAgent(): void;
@@ -136,6 +141,7 @@ function ListRow({
           {card.assignees.length > 1 ? ` +${card.assignees.length - 1}` : ""}
         </Text>
       ) : null}
+      {schedule ? <ScheduleBadge theme={theme} schedule={schedule} /> : null}
       <Text style={[muted, { minWidth: 32, textAlign: "right", fontVariant: ["tabular-nums"] }]}>{age}</Text>
       {/* Same slot either way so rows line up: start open cards, archive done ones. */}
       {card.column !== "done" ? (
